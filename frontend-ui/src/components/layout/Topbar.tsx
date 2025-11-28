@@ -1,8 +1,10 @@
-import { Bell, Settings, Search, User } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { Bell, Settings, Search, User, LogOut } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import ThemeToggle from '../theme/ThemeToggle'
 import { useTheme } from '../../contexts/ThemeContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface TopbarProps {
   unreadAlerts?: number
@@ -13,6 +15,8 @@ export default function Topbar({ unreadAlerts = 0, onClearAlerts }: TopbarProps)
   const navigate = useNavigate()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const { currentUser, logout } = useAuth()
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
   
   const handleNotificationClick = () => {
     // Navigate to alerts page
@@ -22,6 +26,26 @@ export default function Topbar({ unreadAlerts = 0, onClearAlerts }: TopbarProps)
     if (onClearAlerts) {
       onClearAlerts()
     }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/login')
+    } catch (error) {
+      console.error('Failed to log out:', error)
+    }
+  }
+
+  const getUserInitials = () => {
+    if (currentUser?.displayName) {
+      return currentUser.displayName.split(' ').map(n => n[0]).join('').toUpperCase()
+    }
+    return currentUser?.email?.[0].toUpperCase() || 'U'
+  }
+
+  const getUserName = () => {
+    return currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User'
   }
   
   return (
@@ -144,31 +168,94 @@ export default function Topbar({ unreadAlerts = 0, onClearAlerts }: TopbarProps)
         </motion.button>
         
         {/* User Profile */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => navigate('/profile')}
-          className={`
-            flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group
-            ${isDark 
-              ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 hover:border-cyan-500/50' 
-              : 'bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 hover:border-cyan-300'
-            }
-          `}
-          title="Profile"
-        >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
-            <User size={18} className="text-white" />
-          </div>
-          <div className="hidden lg:block text-left">
-            <div className={`text-sm font-semibold transition-colors ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Admin User
+        <div className="relative">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            className={`
+              flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group
+              ${isDark 
+                ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 hover:border-cyan-500/50' 
+                : 'bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 hover:border-cyan-300'
+              }
+            `}
+            title="Profile"
+          >
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-sm font-bold">
+              {getUserInitials()}
             </div>
-            <div className={`text-xs transition-colors ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
-              System Manager
+            <div className="hidden lg:block text-left">
+              <div className={`text-sm font-semibold transition-colors ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                {getUserName()}
+              </div>
+              <div className={`text-xs transition-colors ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
+                {currentUser?.email}
+              </div>
             </div>
-          </div>
-        </motion.button>
+          </motion.button>
+
+          {/* Profile Dropdown Menu */}
+          <AnimatePresence>
+            {showProfileMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className={`
+                  absolute right-0 mt-2 w-48 rounded-xl border shadow-2xl overflow-hidden z-50
+                  ${isDark 
+                    ? 'bg-slate-900/95 border-white/10 backdrop-blur-xl' 
+                    : 'bg-white border-gray-200'
+                  }
+                `}
+              >
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false)
+                    navigate('/profile')
+                  }}
+                  className={`
+                    w-full px-4 py-3 flex items-center gap-3 transition-colors
+                    ${isDark 
+                      ? 'hover:bg-white/5 text-white' 
+                      : 'hover:bg-gray-100 text-gray-900'
+                    }
+                  `}
+                >
+                  <User size={18} />
+                  <span>View Profile</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false)
+                    navigate('/settings')
+                  }}
+                  className={`
+                    w-full px-4 py-3 flex items-center gap-3 transition-colors
+                    ${isDark 
+                      ? 'hover:bg-white/5 text-white' 
+                      : 'hover:bg-gray-100 text-gray-900'
+                    }
+                  `}
+                >
+                  <Settings size={18} />
+                  <span>Settings</span>
+                </button>
+                <div className={`border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}></div>
+                <button
+                  onClick={handleLogout}
+                  className={`
+                    w-full px-4 py-3 flex items-center gap-3 transition-colors text-red-500 hover:bg-red-500/10
+                  `}
+                >
+                  <LogOut size={18} />
+                  <span>Log Out</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   )

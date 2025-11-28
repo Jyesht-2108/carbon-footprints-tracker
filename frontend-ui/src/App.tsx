@@ -1,6 +1,10 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { AuthProvider } from './contexts/AuthContext'
 import Layout from './components/layout/Layout'
+import PrivateRoute from './components/auth/PrivateRoute'
+import LoginPage from './pages/LoginPage'
+import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import IngestPage from './pages/IngestPage'
 import AlertsPage from './pages/AlertsPage'
@@ -14,19 +18,81 @@ import ProfilePage from './pages/ProfilePage'
 function App() {
   return (
     <ThemeProvider>
-      <Layout>
+      <AuthProvider>
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/ingest" element={<IngestPage />} />
-          <Route path="/alerts" element={<AlertsPage />} />
-          <Route path="/simulator" element={<SimulatorPage />} />
-          <Route path="/chat" element={<ChatbotPage />} />
-          <Route path="/activity" element={<ActivityPage />} />
-          <Route path="/insights" element={<InsightsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          {/* Public Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          
+          {/* Protected Routes */}
+          <Route path="/" element={
+            <PrivateRoute>
+              <Layout>
+                <DashboardPage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/ingest" element={
+            <PrivateRoute>
+              <Layout>
+                <IngestPage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/alerts" element={
+            <PrivateRoute>
+              <Layout>
+                <AlertsPage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/simulator" element={
+            <PrivateRoute>
+              <Layout>
+                <SimulatorPage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/chat" element={
+            <PrivateRoute>
+              <Layout>
+                <ChatbotPage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/activity" element={
+            <PrivateRoute>
+              <Layout>
+                <ActivityPage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/insights" element={
+            <PrivateRoute>
+              <Layout>
+                <InsightsPage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/settings" element={
+            <PrivateRoute>
+              <Layout>
+                <SettingsPage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/profile" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfilePage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          {/* Catch all - redirect to login */}
+          <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
-      </Layout>
+      </AuthProvider>
     </ThemeProvider>
   )
 }
