@@ -8,6 +8,8 @@ import ActivityPage from './pages/ActivityPage'
 import ChatbotPage from './pages/ChatbotPage'
 import SimulatorPage from './pages/SimulatorPage'
 import InsightsPage from './pages/InsightsPage'
+import SettingsPage from './pages/SettingsPage'
+import ProfilePage from './pages/ProfilePage'
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
           <Route path="/chat" element={<ChatbotPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Routes>
       </Layout>
     </ThemeProvider>

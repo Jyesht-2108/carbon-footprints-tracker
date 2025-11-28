@@ -123,6 +123,7 @@ export default function Topbar({ unreadAlerts = 0, onClearAlerts }: TopbarProps)
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          onClick={() => navigate('/settings')}
           className={`
             p-3 rounded-xl transition-all duration-300 group relative overflow-hidden
             ${isDark 
@@ -130,6 +131,7 @@ export default function Topbar({ unreadAlerts = 0, onClearAlerts }: TopbarProps)
               : 'bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-600 hover:text-gray-900'
             }
           `}
+          title="Settings"
         >
           <Settings size={20} />
           <div className={`
@@ -145,6 +147,7 @@ export default function Topbar({ unreadAlerts = 0, onClearAlerts }: TopbarProps)
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          onClick={() => navigate('/profile')}
           className={`
             flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group
             ${isDark 
@@ -152,6 +155,7 @@ export default function Topbar({ unreadAlerts = 0, onClearAlerts }: TopbarProps)
               : 'bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 hover:border-cyan-300'
             }
           `}
+          title="Profile"
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
             <User size={18} className="text-white" />
