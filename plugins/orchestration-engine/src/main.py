@@ -4,8 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .utils.config import settings
 from .utils.logger import logger
-from .api import routes_dashboard, routes_hotspots, routes_recommendations, routes_simulation, routes_alerts
+from .api import routes_dashboard, routes_hotspots, routes_recommendations, routes_simulation, routes_alerts, routes_data_quality
 from .services.scheduler import scheduler
+from .services.websocket_manager import sio
+from .services.hotspot_engine import hotspot_engine
 
 
 @asynccontextmanager
@@ -20,6 +22,7 @@ async def lifespan(app: FastAPI):
     # Start scheduler
     scheduler.start()
     logger.info("Scheduler started")
+    logger.info("WebSocket server ready")
     
     yield
     
@@ -52,6 +55,7 @@ app.include_router(routes_hotspots.router)
 app.include_router(routes_recommendations.router)
 app.include_router(routes_simulation.router)
 app.include_router(routes_alerts.router)
+app.include_router(routes_data_quality.router)
 
 
 @app.get("/health")
@@ -70,6 +74,7 @@ async def root():
     return {
         "service": "Carbon Nexus Orchestration Engine",
         "version": "1.0.0",
+        "websocket": "Socket.IO enabled at /socket.io",
         "endpoints": {
             "health": "/health",
             "docs": "/docs",
@@ -77,15 +82,54 @@ async def root():
             "hotspots": "/hotspots/*",
             "recommendations": "/recommendations/*",
             "simulate": "/simulate",
-            "alerts": "/alerts/*"
+            "alerts": "/alerts/*",
+            "trigger-analysis": "/trigger-analysis"
         }
     }
+
+
+@app.post("/trigger-analysis")
+async def trigger_immediate_analysis():
+    """
+    Trigger immediate hotspot detection and prediction.
+    Called automatically after CSV upload.
+    """
+    try:
+        logger.info("🚀 Immediate analysis triggered by CSV upload")
+        
+        # Run hotspot detection immediately
+        hotspots = await hotspot_engine.scan_for_hotspots()
+        
+        logger.info(f"✅ Immediate analysis complete. Found {len(hotspots)} hotspots")
+        
+        return {
+            "status": "success",
+            "message": "Immediate analysis completed",
+            "hotspots_detected": len(hotspots),
+            "hotspots": hotspots
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error in immediate analysis: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+# Create combined ASGI app with Socket.IO
+import socketio as socketio_module
+final_app = socketio_module.ASGIApp(
+    socketio_server=sio,
+    other_asgi_app=app,
+    socketio_path='socket.io'
+)
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "src.main:app",
+        "src.main:final_app",
         host=settings.api_host,
         port=settings.api_port,
         reload=True,

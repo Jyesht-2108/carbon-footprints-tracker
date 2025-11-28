@@ -14,6 +14,11 @@ class ApproveRecommendationRequest(BaseModel):
     notes: Optional[str] = None
 
 
+class RecommendationActionRequest(BaseModel):
+    """Request model for recommendation actions (approve/reject)."""
+    notes: Optional[str] = None
+
+
 @router.get("")
 async def get_recommendations(
     status: Optional[str] = Query(None, description="Filter by status")
@@ -43,7 +48,7 @@ async def get_pending_recommendations() -> List[Dict[str, Any]]:
 @router.post("/{rec_id}/approve")
 async def approve_recommendation(
     rec_id: int,
-    request: ApproveRecommendationRequest
+    request: Optional[RecommendationActionRequest] = None
 ) -> Dict[str, Any]:
     """Approve a recommendation."""
     try:
@@ -53,11 +58,12 @@ async def approve_recommendation(
             raise HTTPException(status_code=404, detail="Recommendation not found")
         
         # Log audit trail
+        notes = request.notes if request else None
         await db_client.insert_audit_log({
             "action": "approve_recommendation",
             "entity_type": "recommendation",
             "entity_id": rec_id,
-            "notes": request.notes,
+            "notes": notes,
             "timestamp": None  # Will use DB default
         })
         
@@ -79,7 +85,7 @@ async def approve_recommendation(
 @router.post("/{rec_id}/reject")
 async def reject_recommendation(
     rec_id: int,
-    request: ApproveRecommendationRequest
+    request: Optional[RecommendationActionRequest] = None
 ) -> Dict[str, Any]:
     """Reject a recommendation."""
     try:
@@ -89,11 +95,12 @@ async def reject_recommendation(
             raise HTTPException(status_code=404, detail="Recommendation not found")
         
         # Log audit trail
+        notes = request.notes if request else None
         await db_client.insert_audit_log({
             "action": "reject_recommendation",
             "entity_type": "recommendation",
             "entity_id": rec_id,
-            "notes": request.notes,
+            "notes": notes,
             "timestamp": None
         })
         

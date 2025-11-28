@@ -16,10 +16,10 @@ class OrchestrationScheduler:
     
     def _setup_jobs(self):
         """Setup scheduled jobs."""
-        # Hotspot detection every 5 minutes
+        # Hotspot detection every 30 minutes (reduced from 5 to save API calls)
         self.scheduler.add_job(
             self._run_hotspot_scan,
-            trigger=IntervalTrigger(seconds=settings.hotspot_check_interval),
+            trigger=IntervalTrigger(minutes=30),  # Changed from settings.hotspot_check_interval
             id="hotspot_scan",
             name="Hotspot Detection Scan",
             replace_existing=True

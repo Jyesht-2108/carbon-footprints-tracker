@@ -45,8 +45,8 @@ class HotspotEngine:
         """Detect hotspot for a single event."""
         try:
             # Determine entity and type
-            entity = event.get("supplier_name") or event.get("route_id") or "Unknown"
-            entity_type = "supplier" if event.get("supplier_name") else "route"
+            entity = event.get("supplier_id") or event.get("route_id") or "Unknown"  # Fixed: was supplier_name
+            entity_type = "supplier" if event.get("supplier_id") else "route"
             
             # Get prediction based on event type
             predicted_co2 = await self._get_prediction(event)
@@ -106,6 +106,13 @@ class HotspotEngine:
             # Generate recommendations via RAG
             await self._generate_recommendations(inserted_hotspot)
             
+            # Emit WebSocket event
+            try:
+                from .websocket_manager import ws_manager
+                await ws_manager.emit_hotspot(inserted_hotspot)
+            except Exception as e:
+                logger.error(f"Error emitting hotspot via WebSocket: {e}")
+            
             return inserted_hotspot
             
         except Exception as e:
@@ -115,37 +122,70 @@ class HotspotEngine:
     async def _get_prediction(self, event: Dict[str, Any]) -> Optional[float]:
         """Get ML prediction for event."""
         # Determine event type and prepare features
+        prediction_type = None
+        predicted_co2 = None
+        features = {}
+        
         if event.get("distance_km"):
             # Logistics event
+            prediction_type = "logistics"
             features = {
                 "distance_km": event.get("distance_km", 0),
-                "load_kg": event.get("load_weight_kg", 0),
+                "load_kg": event.get("load_kg", 0),  # Fixed: was load_weight_kg
                 "vehicle_type": event.get("vehicle_type", "truck_diesel"),
                 "fuel_type": event.get("fuel_type", "diesel"),
-                "avg_speed": event.get("avg_speed", 50)
+                "avg_speed": event.get("speed", 50)  # Fixed: was avg_speed
             }
-            return await ml_client.predict_logistics(features)
+            predicted_co2 = await ml_client.predict_logistics(features)
+            
+            # Save prediction to database
+            if predicted_co2 is not None:
+                await db_client.insert_prediction({
+                    "event_id": event.get("id"),
+                    "prediction_type": prediction_type,
+                    "predicted_co2": predicted_co2,
+                    "confidence_score": 0.85,  # Default confidence
+                    "model_version": "v1.0",
+                    "features": features
+                })
+            
+            return predicted_co2
         
         elif event.get("energy_kwh"):
             # Factory or warehouse event
             if event.get("furnace_usage"):
                 # Factory
+                prediction_type = "factory"
                 features = {
                     "energy_kwh": event.get("energy_kwh", 0),
                     "furnace_usage": event.get("furnace_usage", 0),
                     "cooling_load": event.get("cooling_load", 0),
                     "shift_hours": event.get("shift_hours", 8)
                 }
-                return await ml_client.predict_factory(features)
+                predicted_co2 = await ml_client.predict_factory(features)
             else:
                 # Warehouse
+                prediction_type = "warehouse"
                 features = {
                     "temperature": event.get("temperature", 20),
                     "refrigeration_load": event.get("refrigeration_load", 0),
                     "inventory_volume": event.get("inventory_volume", 0),
                     "energy_kwh": event.get("energy_kwh", 0)
                 }
-                return await ml_client.predict_warehouse(features)
+                predicted_co2 = await ml_client.predict_warehouse(features)
+            
+            # Save prediction to database
+            if predicted_co2 is not None:
+                await db_client.insert_prediction({
+                    "event_id": event.get("id"),
+                    "prediction_type": prediction_type,
+                    "predicted_co2": predicted_co2,
+                    "confidence_score": 0.85,
+                    "model_version": "v1.0",
+                    "features": features
+                })
+            
+            return predicted_co2
         
         return None
     
@@ -158,7 +198,7 @@ class HotspotEngine:
             # Filter by entity
             entity_events = [
                 e for e in events
-                if (e.get("supplier_name") == entity or e.get("route_id") == entity)
+                if (e.get("supplier_id") == entity or e.get("route_id") == entity)  # Fixed: was supplier_name
             ]
             
             if not entity_events:
@@ -182,8 +222,16 @@ class HotspotEngine:
                 "created_at": datetime.utcnow().isoformat()
             }
             
-            await db_client.insert_alert(alert)
+            inserted_alert = await db_client.insert_alert(alert)
             logger.info(f"Alert generated for hotspot {hotspot['id']}")
+            
+            # Emit WebSocket event
+            if inserted_alert:
+                try:
+                    from .websocket_manager import ws_manager
+                    await ws_manager.emit_alert(inserted_alert)
+                except Exception as e:
+                    logger.error(f"Error emitting alert via WebSocket: {e}")
             
         except Exception as e:
             logger.error(f"Error generating alert: {e}")
@@ -191,10 +239,21 @@ class HotspotEngine:
     async def _generate_recommendations(self, hotspot: Dict[str, Any]) -> None:
         """Generate recommendations via RAG for hotspot."""
         try:
+            # Check if recommendations already exist for this entity (caching)
+            existing_recs = await db_client.get_recommendations_by_entity(
+                hotspot["entity"], 
+                status="pending"
+            )
+            
+            # If we already have pending recommendations for this entity, skip RAG call
+            if existing_recs and len(existing_recs) > 0:
+                logger.info(f"Using cached recommendations for {hotspot['entity']} (found {len(existing_recs)} existing)")
+                return
+            
             # Prepare hotspot reason
             reason = f"Emissions {hotspot['percent_above']:.1f}% above baseline"
             
-            # Call RAG service
+            # Call RAG service only if no cached recommendations
             result = await rag_client.generate_recommendations(
                 supplier=hotspot["entity"],
                 predicted=hotspot["predicted_co2"],

@@ -20,7 +20,10 @@ export class UploadController {
       }
       
       const db = getDatabase();
-      const user = req.user!;
+      
+      // For public uploads (no auth), use default values
+      const userId = req.user?.id || 0; // Default user for public uploads
+      const classId = req.user?.classId || 0;
       
       // Save upload record to Supabase
       const { data: uploadData, error: uploadError } = await db
@@ -28,8 +31,8 @@ export class UploadController {
         .insert({
           file_name: req.file.originalname,
           file_path: `temp/${Date.now()}_${req.file.originalname}`,
-          student_id: user.id,
-          class_id: user.classId || 0,
+          student_id: userId,
+          class_id: classId,
           qdrant_collection: config.qdrant.collection
         })
         .select()
@@ -54,10 +57,10 @@ export class UploadController {
       }
       
       // Process asynchronously
-      this.processUpload(uploadId, req.file.buffer, req.file.originalname, user.id, user.classId || 0)
+      this.processUpload(uploadId, req.file.buffer, req.file.originalname, userId, classId)
         .catch(err => logger.error('Upload processing failed', err));
       
-      res.json({ uploadId, status: 'pending' });
+      res.json({ uploadId, status: 'pending', message: 'File uploaded successfully' });
     } catch (error) {
       logger.error('Upload failed', error);
       res.status(500).json({ error: 'Upload failed' });

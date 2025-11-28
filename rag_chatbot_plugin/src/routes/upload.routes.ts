@@ -18,7 +18,8 @@ const upload = multer({
 
 const controller = new UploadController();
 
-router.post('/upload', authMiddleware, upload.single('file'), controller.upload);
-router.get('/upload/:id/status', authMiddleware, controller.getStatus);
+// Public upload endpoint (no auth for chatbot)
+router.post('/upload', upload.single('file'), controller.upload);
+router.get('/upload/:id/status', controller.getStatus);
 
 export default router;

@@ -1,0 +1,26 @@
+supplier_id,timestamp,distance_km,load_kg,vehicle_type,fuel_type,speed,event_type
+Normal_Supplier,2025-11-28 08:00:00,100,400,truck_diesel,diesel,60,logistics
+Normal_Supplier,2025-11-28 09:00:00,105,410,truck_diesel,diesel,62,logistics
+Normal_Supplier,2025-11-28 10:00:00,98,395,truck_diesel,diesel,58,logistics
+Normal_Supplier,2025-11-28 11:00:00,102,405,truck_diesel,diesel,61,logistics
+Normal_Supplier,2025-11-28 12:00:00,103,408,truck_diesel,diesel,59,logistics
+Hotspot_INFO,2025-11-28 08:00:00,180,700,truck_diesel,diesel,55,logistics
+Hotspot_INFO,2025-11-28 09:00:00,185,720,truck_diesel,diesel,54,logistics
+Hotspot_INFO,2025-11-28 10:00:00,190,710,truck_diesel,diesel,56,logistics
+Hotspot_WARN,2025-11-28 08:00:00,250,900,truck_diesel,diesel,50,logistics
+Hotspot_WARN,2025-11-28 09:00:00,260,920,truck_diesel,diesel,48,logistics
+Hotspot_WARN,2025-11-28 10:00:00,255,910,truck_diesel,diesel,52,logistics
+Hotspot_CRITICAL,2025-11-28 08:00:00,400,1200,truck_diesel,diesel,40,logistics
+Hotspot_CRITICAL,2025-11-28 09:00:00,420,1250,truck_diesel,diesel,38,logistics
+Hotspot_CRITICAL,2025-11-28 10:00:00,450,1300,truck_diesel,diesel,35,logistics
+Hotspot_CRITICAL,2025-11-28 11:00:00,480,1350,truck_diesel,diesel,32,logistics
+EV_Efficient,2025-11-28 08:00:00,150,500,truck_ev,electric,70,logistics
+EV_Efficient,2025-11-28 09:00:00,155,510,truck_ev,electric,72,logistics
+EV_Efficient,2025-11-28 10:00:00,148,505,truck_ev,electric,68,logistics
+Mixed_Fleet_A,2025-11-28 08:00:00,120,450,truck_diesel,diesel,60,logistics
+Mixed_Fleet_A,2025-11-28 09:00:00,125,460,truck_ev,electric,65,logistics
+Mixed_Fleet_A,2025-11-28 10:00:00,118,455,van_diesel,diesel,70,logistics
+Heavy_Load_Supplier,2025-11-28 08:00:00,300,1500,truck_diesel,diesel,45,logistics
+Heavy_Load_Supplier,2025-11-28 09:00:00,320,1550,truck_diesel,diesel,42,logistics
+Heavy_Load_Supplier,2025-11-28 10:00:00,310,1520,truck_diesel,diesel,48,logistics
+Heavy_Load_Supplier,2025-11-28 11:00:00,330,1580,truck_diesel,diesel,40,logistics

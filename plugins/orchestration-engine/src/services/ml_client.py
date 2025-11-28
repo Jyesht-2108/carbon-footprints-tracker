@@ -18,7 +18,7 @@ class MLClient:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/predict/logistics",
+                    f"{self.base_url}/api/v1/predict/logistics",
                     json=features
                 )
                 response.raise_for_status()
@@ -33,7 +33,7 @@ class MLClient:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/predict/factory",
+                    f"{self.base_url}/api/v1/predict/factory",
                     json=features
                 )
                 response.raise_for_status()
@@ -48,7 +48,7 @@ class MLClient:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/predict/warehouse",
+                    f"{self.base_url}/api/v1/predict/warehouse",
                     json=features
                 )
                 response.raise_for_status()
@@ -63,7 +63,7 @@ class MLClient:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/predict/delivery",
+                    f"{self.base_url}/api/v1/predict/delivery",
                     json=features
                 )
                 response.raise_for_status()
@@ -78,7 +78,7 @@ class MLClient:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/forecast/7d",
+                    f"{self.base_url}/api/v1/forecast/7d",
                     json={"history": history}
                 )
                 response.raise_for_status()
@@ -91,7 +91,7 @@ class MLClient:
         """Check if ML Engine is healthy."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{self.base_url}/health")
+                response = await client.get(f"{self.base_url}/api/v1/health")
                 return response.status_code == 200
         except Exception:
             return False

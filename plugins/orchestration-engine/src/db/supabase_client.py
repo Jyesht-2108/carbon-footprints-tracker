@@ -120,6 +120,18 @@ class SupabaseClient:
             logger.error(f"Error fetching recommendations: {e}")
             return []
     
+    async def get_recommendations_by_entity(self, entity: str, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get recommendations for a specific entity (supplier/route), optionally filtered by status."""
+        try:
+            query = self.client.table("recommendations").select("*").eq("supplier_id", entity)
+            if status:
+                query = query.eq("status", status)
+            response = query.order("created_at", desc=True).limit(5).execute()
+            return response.data
+        except Exception as e:
+            logger.error(f"Error fetching recommendations by entity: {e}")
+            return []
+    
     async def update_recommendation_status(self, rec_id: int, status: str) -> bool:
         """Update recommendation status."""
         try:

@@ -79,6 +79,15 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Error fetching ingest job: {e}")
             return None
+    
+    def get_all_ingest_jobs(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Get all ingest jobs (most recent first)"""
+        try:
+            result = self.client.table("ingest_jobs").select("*").order("created_at", desc=True).limit(limit).execute()
+            return result.data if result.data else []
+        except Exception as e:
+            logger.error(f"Error fetching all ingest jobs: {e}")
+            return []
 
 
 # Singleton instance

@@ -93,79 +93,135 @@ Rules:
   }
   
   async generateRecommendations(context: HotspotContext): Promise<RecommendationResponse> {
-    try {
-      const percentAbove = ((context.predicted - context.baseline) / context.baseline * 100).toFixed(1);
-      
-      const prompt = await this.promptTemplate.format({
-        entity: context.supplier || context.entity || 'Unknown',
-        predicted: context.predicted,
-        baseline: context.baseline,
-        percentAbove,
-        reason: context.hotspot_reason || 'Emissions spike detected'
-      });
-      
-      const response = await this.model.invoke(prompt);
-      const content = typeof response.content === 'string' 
-        ? response.content 
-        : response.content.toString();
-      
-      // Extract JSON from response (handle markdown code blocks and malformed JSON)
-      let jsonStr = content.trim();
-      
-      // Remove markdown code blocks
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
-      } else if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.replace(/```\n?/g, '').replace(/```\n?$/g, '');
-      }
-      
-      // Clean up common JSON issues
-      jsonStr = jsonStr.trim();
-      
-      // Remove any text before the first { or after the last }
-      const firstBrace = jsonStr.indexOf('{');
-      const lastBrace = jsonStr.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1) {
-        jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-      }
-      
-      // Fix common issues: replace smart quotes, fix line breaks in strings
-      jsonStr = jsonStr
-        .replace(/[\u201C\u201D]/g, '"')  // Smart double quotes
-        .replace(/[\u2018\u2019]/g, "'")  // Smart single quotes
-        .replace(/\n/g, ' ')              // Remove newlines that break JSON
-        .replace(/\r/g, '');              // Remove carriage returns
-      
-      logger.debug('Cleaned JSON string:', jsonStr.substring(0, 200));
-      
-      const recommendations: RecommendationResponse = JSON.parse(jsonStr);
-      
-      // Add confidence scores
-      recommendations.actions = recommendations.actions.map(action => ({
-        ...action,
-        confidence: this.calculateConfidence(action.feasibility, context)
-      }));
-      
-      logger.info('Generated structured recommendations');
-      return recommendations;
-    } catch (error) {
-      logger.error('Failed to generate recommendations', error);
-      
-      // Fallback recommendations
-      return {
-        root_cause: 'Unable to determine root cause automatically',
-        actions: [
-          {
-            title: 'Review supplier operations',
-            description: 'Conduct detailed analysis of recent operational changes',
-            co2_reduction: 10,
-            cost_impact: '0%',
-            feasibility: 8,
-            confidence: 0.5
+    // Try up to 2 times with different strategies
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const percentAbove = ((context.predicted - context.baseline) / context.baseline * 100).toFixed(1);
+        
+        const prompt = await this.promptTemplate.format({
+          entity: context.supplier || context.entity || 'Unknown',
+          predicted: context.predicted,
+          baseline: context.baseline,
+          percentAbove,
+          reason: context.hotspot_reason || 'Emissions spike detected'
+        });
+        
+        const response = await this.model.invoke(prompt);
+        
+        // Check if response has content
+        if (!response || !response.content) {
+          logger.warn(`Attempt ${attempt}: Empty response from AI model`);
+          if (attempt < 2) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+            continue;
           }
-        ]
-      };
+          throw new Error('Empty response from AI model');
+        }
+        
+        const content = typeof response.content === 'string' 
+          ? response.content 
+          : response.content.toString();
+        
+        // Extract and clean JSON
+        let jsonStr = this.cleanJsonString(content);
+        
+        logger.debug('Cleaned JSON string:', { length: jsonStr.length, preview: jsonStr.substring(0, 100) });
+        
+        const recommendations: RecommendationResponse = JSON.parse(jsonStr);
+        
+        // Validate structure
+        if (!recommendations.root_cause || !Array.isArray(recommendations.actions) || recommendations.actions.length === 0) {
+          throw new Error('Invalid recommendation structure');
+        }
+        
+        // Add confidence scores
+        recommendations.actions = recommendations.actions.map(action => ({
+          ...action,
+          confidence: this.calculateConfidence(action.feasibility, context)
+        }));
+        
+        logger.info('Generated structured recommendations');
+        return recommendations;
+        
+      } catch (error: any) {
+        logger.error(`Attempt ${attempt} failed to generate recommendations`, { 
+          error: error.message,
+          stack: error.stack?.split('\n')[0]
+        });
+        
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
+          continue;
+        }
+        
+        // Final fallback after all attempts
+        return this.getFallbackRecommendations(context);
+      }
     }
+    
+    // Should never reach here, but TypeScript needs it
+    return this.getFallbackRecommendations(context);
+  }
+  
+  private cleanJsonString(content: string): string {
+    let jsonStr = content.trim();
+    
+    // Remove markdown code blocks
+    if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
+    } else if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replace(/```\n?/g, '').replace(/```\n?$/g, '');
+    }
+    
+    jsonStr = jsonStr.trim();
+    
+    // Remove any text before the first { or after the last }
+    const firstBrace = jsonStr.indexOf('{');
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+    }
+    
+    // Fix common JSON issues
+    jsonStr = jsonStr
+      .replace(/[\u201C\u201D]/g, '"')     // Smart double quotes
+      .replace(/[\u2018\u2019]/g, "'")     // Smart single quotes
+      .replace(/\r\n/g, ' ')               // Windows line breaks
+      .replace(/\n/g, ' ')                 // Unix line breaks
+      .replace(/\r/g, ' ')                 // Mac line breaks
+      .replace(/\t/g, ' ')                 // Tabs
+      .replace(/\s+/g, ' ')                // Multiple spaces to single
+      .replace(/,\s*}/g, '}')              // Trailing commas in objects
+      .replace(/,\s*]/g, ']');             // Trailing commas in arrays
+    
+    return jsonStr;
+  }
+  
+  private getFallbackRecommendations(context: HotspotContext): RecommendationResponse {
+    const percentAbove = ((context.predicted - context.baseline) / context.baseline * 100).toFixed(1);
+    const entity = context.supplier || context.entity || 'Unknown';
+    
+    return {
+      root_cause: `Emissions spike detected for ${entity} (${percentAbove}% above baseline)`,
+      actions: [
+        {
+          title: 'Review recent operational changes',
+          description: 'Analyze recent changes in operations, suppliers, or processes',
+          co2_reduction: Math.round(context.predicted - context.baseline) * 0.3,
+          cost_impact: '0%',
+          feasibility: 8,
+          confidence: 0.5
+        },
+        {
+          title: 'Optimize logistics and transportation',
+          description: 'Review shipping routes and transportation methods',
+          co2_reduction: Math.round(context.predicted - context.baseline) * 0.2,
+          cost_impact: '+2%',
+          feasibility: 7,
+          confidence: 0.5
+        }
+      ]
+    };
   }
   
   async saveRecommendations(

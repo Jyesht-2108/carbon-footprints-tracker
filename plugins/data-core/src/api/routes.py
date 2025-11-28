@@ -4,6 +4,8 @@ from typing import Dict, Any, List
 import pandas as pd
 import uuid
 from datetime import datetime
+import httpx
+import os
 
 from src.ingestion.schema_validator import SchemaValidator
 from src.processing.normalizer import DataNormalizer
@@ -14,6 +16,9 @@ from src.db.supabase_client import supabase_client
 from src.utils.logger import logger
 
 router = APIRouter()
+
+# Orchestration engine URL
+ORCHESTRATION_URL = os.getenv("ORCHESTRATION_ENGINE_URL", "http://localhost:8000")
 
 
 @router.post("/ingest/csv")
@@ -82,11 +87,25 @@ async def ingest_csv(file: UploadFile = File(...)):
         metrics = QualityMetrics.calculate_metrics(df)
         supabase_client.insert_quality_metrics(metrics)
         
+        # 🚀 TRIGGER IMMEDIATE ANALYSIS
+        logger.info("🚀 Triggering immediate hotspot detection...")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(f"{ORCHESTRATION_URL}/trigger-analysis")
+                if response.status_code == 200:
+                    analysis_result = response.json()
+                    logger.info(f"✅ Immediate analysis triggered: {analysis_result.get('hotspots_detected', 0)} hotspots detected")
+                else:
+                    logger.warning(f"⚠️ Analysis trigger failed with status {response.status_code}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not trigger immediate analysis: {e}")
+        
         return JSONResponse(content={
             "status": "ok",
             "rows": len(df),
             "outliers": int(df["is_outlier"].sum()),
-            "quality_metrics": metrics
+            "quality_metrics": metrics,
+            "immediate_analysis": "triggered"
         })
     
     except Exception as e:
@@ -251,9 +270,23 @@ async def ingest_upload(file: UploadFile = File(...)):
             "rows_processed": len(df)
         })
         
+        # 🚀 TRIGGER IMMEDIATE ANALYSIS
+        logger.info("🚀 Triggering immediate hotspot detection...")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(f"{ORCHESTRATION_URL}/trigger-analysis")
+                if response.status_code == 200:
+                    analysis_result = response.json()
+                    logger.info(f"✅ Immediate analysis triggered: {analysis_result.get('hotspots_detected', 0)} hotspots detected")
+                else:
+                    logger.warning(f"⚠️ Analysis trigger failed with status {response.status_code}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not trigger immediate analysis: {e}")
+            # Don't fail the upload if analysis trigger fails
+        
         return JSONResponse(content={
             "jobId": job_id,
-            "message": "Upload received and processed",
+            "message": "Upload received and processed. Immediate analysis triggered.",
             "rows": len(df)
         })
     
@@ -280,6 +313,18 @@ async def get_job_status(job_id: str):
     
     except Exception as e:
         logger.error(f"Error fetching job status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ingest/jobs")
+async def get_all_jobs(limit: int = 20):
+    """Get all upload jobs (most recent first)"""
+    try:
+        jobs = supabase_client.get_all_ingest_jobs(limit)
+        return JSONResponse(content=jobs)
+    
+    except Exception as e:
+        logger.error(f"Error fetching jobs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

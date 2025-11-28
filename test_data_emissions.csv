@@ -1,0 +1,26 @@
+supplier_id,timestamp,distance_km,load_kg,vehicle_type,fuel_type,speed,event_type
+Supplier_A,2025-11-28 08:00:00,120,450,truck_diesel,diesel,55,logistics
+Supplier_A,2025-11-28 09:00:00,150,500,truck_diesel,diesel,60,logistics
+Supplier_A,2025-11-28 10:00:00,200,600,truck_diesel,diesel,50,logistics
+Supplier_A,2025-11-28 11:00:00,180,550,truck_diesel,diesel,58,logistics
+Supplier_A,2025-11-28 12:00:00,160,480,truck_diesel,diesel,62,logistics
+Supplier_B,2025-11-28 08:00:00,80,300,truck_ev,electric,65,logistics
+Supplier_B,2025-11-28 09:00:00,90,320,truck_ev,electric,68,logistics
+Supplier_B,2025-11-28 10:00:00,85,310,truck_ev,electric,70,logistics
+Supplier_B,2025-11-28 11:00:00,95,330,truck_ev,electric,67,logistics
+Supplier_B,2025-11-28 12:00:00,88,315,truck_ev,electric,69,logistics
+Supplier_C,2025-11-28 08:00:00,250,800,truck_diesel,diesel,45,logistics
+Supplier_C,2025-11-28 09:00:00,280,850,truck_diesel,diesel,48,logistics
+Supplier_C,2025-11-28 10:00:00,300,900,truck_diesel,diesel,42,logistics
+Supplier_C,2025-11-28 11:00:00,320,950,truck_diesel,diesel,40,logistics
+Supplier_C,2025-11-28 12:00:00,350,1000,truck_diesel,diesel,38,logistics
+Supplier_D,2025-11-28 08:00:00,100,400,van_diesel,diesel,70,logistics
+Supplier_D,2025-11-28 09:00:00,110,420,van_diesel,diesel,72,logistics
+Supplier_D,2025-11-28 10:00:00,105,410,van_diesel,diesel,75,logistics
+Supplier_D,2025-11-28 11:00:00,115,430,van_diesel,diesel,68,logistics
+Supplier_D,2025-11-28 12:00:00,108,415,van_diesel,diesel,71,logistics
+Supplier_E,2025-11-28 08:00:00,60,200,two_wheeler,petrol,80,logistics
+Supplier_E,2025-11-28 09:00:00,65,220,two_wheeler,petrol,82,logistics
+Supplier_E,2025-11-28 10:00:00,70,210,two_wheeler,petrol,85,logistics
+Supplier_E,2025-11-28 11:00:00,62,215,two_wheeler,petrol,83,logistics
+Supplier_E,2025-11-28 12:00:00,68,225,two_wheeler,petrol,81,logistics

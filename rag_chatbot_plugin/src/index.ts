@@ -7,6 +7,7 @@ import { QdrantService } from './services/qdrant.service';
 import uploadRoutes from './routes/upload.routes';
 import queryRoutes from './routes/query.routes';
 import recommendationRoutes from './routes/recommendation.routes';
+import chatRoutes from './routes/chat.routes';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(express.static('public'));
 app.use('/api', uploadRoutes);
 app.use('/api', queryRoutes);
 app.use('/api', recommendationRoutes);
+app.use('/api', chatRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
