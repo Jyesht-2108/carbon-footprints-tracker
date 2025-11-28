@@ -97,7 +97,7 @@ export default function EmissionsBarChart({ data }: EmissionsBarChartProps) {
             animationDuration={1000}
             maxBarSize={60}
           >
-            {chartData.map((entry, index) => (
+            {chartData.map((_entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
                 fill={`url(#barGradient${index % COLORS.length})`}

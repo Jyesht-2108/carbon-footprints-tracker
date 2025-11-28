@@ -21,7 +21,7 @@ interface RecommendationsCardProps {
 
 export default function RecommendationsCard({ data }: RecommendationsCardProps) {
   const queryClient = useQueryClient()
-  const [selectedRecommendation, setSelectedRecommendation] = useState<RecommendationsCardProps['data'][0] | null>(null)
+  const [selectedRecommendation, setSelectedRecommendation] = useState<RecommendationsCardProps['data'] extends Array<infer T> ? T : never | null>(null)
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => recommendationApi.approve(id),

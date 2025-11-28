@@ -48,7 +48,7 @@ const getSeverityStyles = (severity: string) => {
 }
 
 export default function HotspotsCard({ data }: HotspotsCardProps) {
-  const [selectedHotspot, setSelectedHotspot] = useState<HotspotsCardProps['data'][0] | null>(null)
+  const [selectedHotspot, setSelectedHotspot] = useState<HotspotsCardProps['data'] extends Array<infer T> ? T : never | null>(null)
 
   return (
     <>

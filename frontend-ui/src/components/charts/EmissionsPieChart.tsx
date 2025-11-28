@@ -171,7 +171,7 @@ export default function EmissionsPieChart({ data }: EmissionsPieChartProps) {
             paddingAngle={3}
             style={{ filter: 'url(#shadow)' }}
           >
-            {chartData.map((entry, index) => (
+            {chartData.map((_entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
                 fill={`url(#pieGradient${index % COLORS.length})`}
@@ -194,7 +194,7 @@ export default function EmissionsPieChart({ data }: EmissionsPieChartProps) {
             }}
             labelStyle={{ color: '#fff', fontWeight: 700, fontSize: 14, marginBottom: 8 }}
             itemStyle={{ color: '#06b6d4', fontWeight: 700, fontSize: 13 }}
-            formatter={(value: number, name: string, props: any) => [
+            formatter={(value: number, _name: string, props: any) => [
               `${value} kg CO₂ (${props.payload.percentage}%)`,
               props.payload.fullName
             ]}
@@ -209,7 +209,7 @@ export default function EmissionsPieChart({ data }: EmissionsPieChartProps) {
               fontWeight: 600,
               color: 'rgba(255,255,255,0.8)',
             }}
-            formatter={(value, entry: any) => {
+            formatter={(value, _entry: any) => {
               const item = chartData.find(d => d.name === value)
               return `${value} (${item?.percentage}%)`
             }}

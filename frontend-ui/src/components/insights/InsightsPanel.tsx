@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, TrendingUp, TrendingDown, Lightbulb, CheckCircle } from 'lucide-react';
+import { AlertCircle, TrendingUp, Lightbulb, CheckCircle } from 'lucide-react';
 
 interface Insight {
   id: string;
