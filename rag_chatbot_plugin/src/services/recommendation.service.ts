@@ -63,21 +63,33 @@ Each recommendation must include:
 - cost_impact: Cost impact as percentage string (e.g., "+3%", "-2%", "0%")
 - feasibility: Feasibility score from 1-10 (10 = most feasible)
 
-Return ONLY valid JSON in this exact format:
+CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no explanations.
+Use this EXACT format (replace values but keep structure):
 {{
-  "root_cause": "Brief explanation of why emissions increased",
+  "root_cause": "Brief explanation here",
   "actions": [
     {{
-      "title": "Action title",
-      "description": "Action description",
+      "title": "Action title here",
+      "description": "Action description here",
       "co2_reduction": 25.5,
       "cost_impact": "+2%",
       "feasibility": 8
+    }},
+    {{
+      "title": "Second action title",
+      "description": "Second action description",
+      "co2_reduction": 15.0,
+      "cost_impact": "-1%",
+      "feasibility": 7
     }}
   ]
 }}
 
-Respond with JSON only, no additional text.`);
+Rules:
+- Use double quotes for all strings
+- No line breaks inside string values
+- Provide 2-3 actions
+- Return ONLY the JSON object, nothing else`);
   }
   
   async generateRecommendations(context: HotspotContext): Promise<RecommendationResponse> {
@@ -97,13 +109,34 @@ Respond with JSON only, no additional text.`);
         ? response.content 
         : response.content.toString();
       
-      // Extract JSON from response (handle markdown code blocks)
+      // Extract JSON from response (handle markdown code blocks and malformed JSON)
       let jsonStr = content.trim();
+      
+      // Remove markdown code blocks
       if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
       } else if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.replace(/```\n?/g, '');
+        jsonStr = jsonStr.replace(/```\n?/g, '').replace(/```\n?$/g, '');
       }
+      
+      // Clean up common JSON issues
+      jsonStr = jsonStr.trim();
+      
+      // Remove any text before the first { or after the last }
+      const firstBrace = jsonStr.indexOf('{');
+      const lastBrace = jsonStr.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+      }
+      
+      // Fix common issues: replace smart quotes, fix line breaks in strings
+      jsonStr = jsonStr
+        .replace(/[\u201C\u201D]/g, '"')  // Smart double quotes
+        .replace(/[\u2018\u2019]/g, "'")  // Smart single quotes
+        .replace(/\n/g, ' ')              // Remove newlines that break JSON
+        .replace(/\r/g, '');              // Remove carriage returns
+      
+      logger.debug('Cleaned JSON string:', jsonStr.substring(0, 200));
       
       const recommendations: RecommendationResponse = JSON.parse(jsonStr);
       

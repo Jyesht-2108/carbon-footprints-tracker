@@ -22,19 +22,36 @@ export class UploadController {
       const db = getDatabase();
       const user = req.user!;
       
-      // Save upload record
-      const [result] = await db.execute(
-        'INSERT INTO uploads (file_name, file_path, student_id, class_id, qdrant_collection) VALUES (?, ?, ?, ?, ?)',
-        [req.file.originalname, `temp/${Date.now()}_${req.file.originalname}`, user.id, user.classId || 0, config.qdrant.collection]
-      );
+      // Save upload record to Supabase
+      const { data: uploadData, error: uploadError } = await db
+        .from('uploads')
+        .insert({
+          file_name: req.file.originalname,
+          file_path: `temp/${Date.now()}_${req.file.originalname}`,
+          student_id: user.id,
+          class_id: user.classId || 0,
+          qdrant_collection: config.qdrant.collection
+        })
+        .select()
+        .single();
       
-      const uploadId = (result as any).insertId;
+      if (uploadError) {
+        throw uploadError;
+      }
+      
+      const uploadId = uploadData.id;
       
       // Create ingestion job
-      await db.execute(
-        'INSERT INTO ingestion_jobs (upload_id, status) VALUES (?, ?)',
-        [uploadId, 'pending']
-      );
+      const { error: jobError } = await db
+        .from('ingestion_jobs')
+        .insert({
+          upload_id: uploadId,
+          status: 'pending'
+        });
+      
+      if (jobError) {
+        throw jobError;
+      }
       
       // Process asynchronously
       this.processUpload(uploadId, req.file.buffer, req.file.originalname, user.id, user.classId || 0)
@@ -50,17 +67,17 @@ export class UploadController {
   getStatus = async (req: Request, res: Response) => {
     try {
       const db = getDatabase();
-      const [rows] = await db.execute(
-        'SELECT * FROM ingestion_jobs WHERE upload_id = ?',
-        [req.params.id]
-      );
+      const { data, error } = await db
+        .from('ingestion_jobs')
+        .select('*')
+        .eq('upload_id', req.params.id)
+        .single();
       
-      const jobs = rows as any[];
-      if (jobs.length === 0) {
+      if (error || !data) {
         return res.status(404).json({ error: 'Upload not found' });
       }
       
-      res.json(jobs[0]);
+      res.json(data);
     } catch (error) {
       logger.error('Status check failed', error);
       res.status(500).json({ error: 'Failed to get status' });
@@ -77,10 +94,11 @@ export class UploadController {
     const db = getDatabase();
     
     try {
-      await db.execute(
-        'UPDATE ingestion_jobs SET status = ? WHERE upload_id = ?',
-        ['processing', uploadId]
-      );
+      // Update status to processing
+      await db
+        .from('ingestion_jobs')
+        .update({ status: 'processing' })
+        .eq('upload_id', uploadId);
       
       // Extract text from PDF
       const pages = await this.pdfService.extractText(buffer);
@@ -107,18 +125,25 @@ export class UploadController {
       await this.qdrantService.upsertVectors(embeddings, payloads);
       
       // Mark as done
-      await db.execute(
-        'UPDATE ingestion_jobs SET status = ?, processed_at = NOW(), chunks_count = ? WHERE upload_id = ?',
-        ['done', chunks.length, uploadId]
-      );
+      await db
+        .from('ingestion_jobs')
+        .update({
+          status: 'done',
+          processed_at: new Date().toISOString(),
+          chunks_count: chunks.length
+        })
+        .eq('upload_id', uploadId);
       
       logger.info(`Successfully processed upload ${uploadId}`);
     } catch (error) {
       logger.error(`Processing failed for upload ${uploadId}`, error);
-      await db.execute(
-        'UPDATE ingestion_jobs SET status = ?, error_message = ? WHERE upload_id = ?',
-        ['failed', (error as Error).message, uploadId]
-      );
+      await db
+        .from('ingestion_jobs')
+        .update({
+          status: 'failed',
+          error_message: (error as Error).message
+        })
+        .eq('upload_id', uploadId);
     }
   }
 }
