@@ -45,10 +45,18 @@ async def ingest_csv(file: UploadFile = File(...)):
         
         # Store raw events
         for _, row in df.iterrows():
+            # Convert row to dict and handle timestamps
+            payload = row.to_dict()
+            for key, value in payload.items():
+                if pd.isna(value):
+                    payload[key] = None
+                elif isinstance(value, pd.Timestamp):
+                    payload[key] = value.isoformat()
+            
             raw_event = {
                 "supplier_id": row.get("supplier_id"),
                 "timestamp": row.get("timestamp").isoformat() if pd.notna(row.get("timestamp")) else None,
-                "payload": row.to_dict(),
+                "payload": payload,
                 "data_source": "csv_upload",
                 "created_at": datetime.utcnow().isoformat()
             }
@@ -196,11 +204,19 @@ async def ingest_upload(file: UploadFile = File(...)):
         supabase_client.update_ingest_job(job_id, {"status": "inserting"})
         
         for idx, row in df.iterrows():
+            # Convert row to dict and handle timestamps
+            payload = row.to_dict()
+            for key, value in payload.items():
+                if pd.isna(value):
+                    payload[key] = None
+                elif isinstance(value, pd.Timestamp):
+                    payload[key] = value.isoformat()
+            
             # Insert raw
             raw_event = {
                 "supplier_id": row.get("supplier_id"),
                 "timestamp": row.get("timestamp").isoformat() if pd.notna(row.get("timestamp")) else None,
-                "payload": row.to_dict(),
+                "payload": payload,
                 "data_source": "file_upload",
                 "created_at": datetime.utcnow().isoformat()
             }
