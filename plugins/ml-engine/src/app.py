@@ -45,6 +45,13 @@ app.include_router(router, prefix="/api/v1")
 app.include_router(batch_router, prefix="/api/v1")
 app.include_router(insights_router, prefix="/api/v1/insights", tags=["insights"])
 
+# Import and include ML models routes
+try:
+    from .api.ml_models_routes import router as ml_models_router
+    app.include_router(ml_models_router, prefix="/api/v1/ml", tags=["ml-models"])
+except ImportError as e:
+    logger.warning(f"Could not import ML models routes: {e}")
+
 @app.get("/")
 async def root():
     return {

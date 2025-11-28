@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Upload, Bell, Activity, Zap, MessageCircle, FlaskConical } from 'lucide-react'
+import { LayoutDashboard, Upload, Bell, Activity, Zap, MessageCircle, FlaskConical, Lightbulb } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -7,6 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext'
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', gradient: 'from-cyan-500 to-blue-600' },
   { path: '/ingest', icon: Upload, label: 'Data Upload', gradient: 'from-green-500 to-emerald-600' },
+  { path: '/insights', icon: Lightbulb, label: 'AI Insights', gradient: 'from-yellow-500 to-orange-600' },
   { path: '/alerts', icon: Bell, label: 'Alerts', gradient: 'from-orange-500 to-red-600' },
   { path: '/simulator', icon: FlaskConical, label: 'What-If Simulator', gradient: 'from-amber-500 to-orange-600' },
   { path: '/chat', icon: MessageCircle, label: 'AI Assistant', gradient: 'from-purple-500 to-pink-600' },

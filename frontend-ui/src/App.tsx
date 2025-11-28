@@ -7,6 +7,7 @@ import AlertsPage from './pages/AlertsPage'
 import ActivityPage from './pages/ActivityPage'
 import ChatbotPage from './pages/ChatbotPage'
 import SimulatorPage from './pages/SimulatorPage'
+import InsightsPage from './pages/InsightsPage'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="/simulator" element={<SimulatorPage />} />
           <Route path="/chat" element={<ChatbotPage />} />
           <Route path="/activity" element={<ActivityPage />} />
+          <Route path="/insights" element={<InsightsPage />} />
         </Routes>
       </Layout>
     </ThemeProvider>
