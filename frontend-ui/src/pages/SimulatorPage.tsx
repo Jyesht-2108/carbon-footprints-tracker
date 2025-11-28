@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Play, Plus, Trash2, Copy, Download, Zap } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Play, Plus, Trash2, Copy, Download, Zap, Sparkles, Loader2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { mlPredictionApi } from '../services/api'
 
 interface Scenario {
   id: string
@@ -36,26 +37,127 @@ export default function SimulatorPage() {
     }
   ])
   const [activeScenario, setActiveScenario] = useState('1')
+  const [isAIPredicting, setIsAIPredicting] = useState(false)
+  const [useAI, setUseAI] = useState(true)
+  const [mlPredictions, setMlPredictions] = useState<any>(null)
 
   const baselineCO2 = 455.5 // kg CO₂ from current data
 
-  const calculateScenario = (scenario: Scenario): Scenario => {
+  const predictWithAI = async (scenario: Scenario) => {
+    setIsAIPredicting(true)
+    try {
+      const { electricVehicles, routeOptimization, loadConsolidation, alternativeFuels } = scenario.changes
+      
+      // Prepare inputs for all 4 ML models based on scenario changes
+      const baseDistance = 150
+      const baseLoad = 5000
+      const baseEnergy = 1200
+      const baseRouteLength = 25
+      
+      // Adjust parameters based on scenario changes
+      const evPercentage = electricVehicles / 100
+      const routeOptPercentage = routeOptimization / 100
+      const loadConsolidationPercentage = loadConsolidation / 100
+      const altFuelPercentage = alternativeFuels / 100
+      
+      const predictions = await mlPredictionApi.predictAll({
+        logistics: {
+          distance_km: baseDistance * (1 - routeOptPercentage * 0.15),
+          load_kg: baseLoad * (1 + loadConsolidationPercentage * 0.3),
+          vehicle_type: evPercentage > 0.5 ? 'truck_electric' : 'truck_diesel',
+          fuel_type: altFuelPercentage > 0.5 ? 'biodiesel' : 'diesel',
+          avg_speed: 60 + (routeOptPercentage * 10),
+          stop_events: Math.max(1, Math.floor(3 * (1 - routeOptPercentage * 0.5)))
+        },
+        factory: {
+          energy_kwh: baseEnergy * (1 - electricVehicles / 200),
+          shift_hours: 8,
+          machine_runtime_hours: 7.5,
+          furnace_usage: 500 * (1 - altFuelPercentage * 0.3),
+          cooling_load: 200
+        },
+        warehouse: {
+          temperature: 5,
+          energy_kwh: 800 * (1 - electricVehicles / 200),
+          refrigeration_load: 600,
+          inventory_volume: 10000 * (1 + loadConsolidationPercentage * 0.2)
+        },
+        delivery: {
+          route_length: baseRouteLength * (1 - routeOptPercentage * 0.2),
+          vehicle_type: evPercentage > 0.5 ? 'electric_van' : 'van',
+          traffic_score: Math.max(1, 7 - Math.floor(routeOptPercentage * 3)),
+          delivery_count: Math.floor(15 * (1 + loadConsolidationPercentage * 0.3))
+        }
+      })
+      
+      setMlPredictions(predictions)
+      
+      // Calculate total CO2 from ML predictions
+      let totalPredictedCO2 = 0
+      let modelCount = 0
+      
+      if (predictions.logistics && !predictions.logistics.error) {
+        totalPredictedCO2 += predictions.logistics.co2_kg
+        modelCount++
+      }
+      if (predictions.factory && !predictions.factory.error) {
+        totalPredictedCO2 += predictions.factory.co2_kg
+        modelCount++
+      }
+      if (predictions.warehouse && !predictions.warehouse.error) {
+        totalPredictedCO2 += predictions.warehouse.co2_kg
+        modelCount++
+      }
+      if (predictions.delivery && !predictions.delivery.error) {
+        totalPredictedCO2 += predictions.delivery.co2_kg
+        modelCount++
+      }
+      
+      const projectedCO2 = modelCount > 0 ? totalPredictedCO2 : baselineCO2
+      const reduction = baselineCO2 - projectedCO2
+      const reductionPercent = (reduction / baselineCO2) * 100
+      
+      // Calculate costs
+      const cost = (electricVehicles * 500) + (routeOptimization * 100) + (loadConsolidation * 150) + (alternativeFuels * 200)
+      const annualSavings = Math.abs(reduction) * 300
+      const roi = annualSavings > 0 ? (cost / annualSavings) * 12 : 0
+      
+      return {
+        ...scenario,
+        result: {
+          currentCO2: baselineCO2,
+          projectedCO2,
+          reduction,
+          reductionPercent,
+          cost,
+          roi
+        }
+      }
+    } catch (error) {
+      console.error('AI prediction failed:', error)
+      // Fallback to simple calculation
+      return calculateScenarioSimple(scenario)
+    } finally {
+      setIsAIPredicting(false)
+    }
+  }
+
+  const calculateScenarioSimple = (scenario: Scenario): Scenario => {
     const { electricVehicles, routeOptimization, loadConsolidation, alternativeFuels } = scenario.changes
     
     // Calculate CO₂ reduction based on changes
-    const evReduction = (electricVehicles / 100) * 0.60 // EVs reduce 60% of emissions
-    const routeReduction = (routeOptimization / 100) * 0.15 // Route optimization reduces 15%
-    const loadReduction = (loadConsolidation / 100) * 0.20 // Load consolidation reduces 20%
-    const fuelReduction = (alternativeFuels / 100) * 0.30 // Alternative fuels reduce 30%
+    const evReduction = (electricVehicles / 100) * 0.60
+    const routeReduction = (routeOptimization / 100) * 0.15
+    const loadReduction = (loadConsolidation / 100) * 0.20
+    const fuelReduction = (alternativeFuels / 100) * 0.30
     
     const totalReduction = evReduction + routeReduction + loadReduction + fuelReduction
     const projectedCO2 = baselineCO2 * (1 - totalReduction)
     const reduction = baselineCO2 - projectedCO2
     const reductionPercent = (reduction / baselineCO2) * 100
     
-    // Calculate costs (simplified)
     const cost = (electricVehicles * 500) + (routeOptimization * 100) + (loadConsolidation * 150) + (alternativeFuels * 200)
-    const annualSavings = reduction * 300 // $300 per kg CO₂ saved annually
+    const annualSavings = reduction * 300
     const roi = annualSavings > 0 ? (cost / annualSavings) * 12 : 0
     
     return {
@@ -69,6 +171,14 @@ export default function SimulatorPage() {
         roi
       }
     }
+  }
+
+  const calculateScenario = (scenario: Scenario): Scenario => {
+    if (useAI) {
+      // Return current state, actual prediction happens on button click
+      return scenario.result ? scenario : calculateScenarioSimple(scenario)
+    }
+    return calculateScenarioSimple(scenario)
   }
 
   const addScenario = () => {
@@ -213,20 +323,47 @@ export default function SimulatorPage() {
                   }}
                   className="text-2xl font-bold text-white bg-transparent border-b-2 border-transparent hover:border-white/30 focus:border-cyan-500 focus:outline-none transition-colors"
                 />
-                <button 
-                  onClick={() => {
-                    // Recalculate and show results (already happening automatically)
-                    // Add a toast notification for user feedback
-                    const result = calculatedScenario.result
-                    if (result) {
-                      alert(`Simulation Complete!\n\nCO₂ Reduction: ${result.reduction.toFixed(1)} kg (-${result.reductionPercent.toFixed(1)}%)\nProjected CO₂: ${result.projectedCO2.toFixed(1)} kg\nCost: $${result.cost.toLocaleString()}\nROI: ${result.roi.toFixed(1)} months`)
-                    }
-                  }}
-                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-emerald-500/50"
-                >
-                  <Play size={16} />
-                  Run Simulation
-                </button>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer hover:text-white transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={useAI}
+                      onChange={(e) => setUseAI(e.target.checked)}
+                      className="w-4 h-4 rounded border-white/30 bg-white/10 checked:bg-cyan-500 cursor-pointer"
+                    />
+                    <Sparkles size={14} className="text-cyan-400" />
+                    <span className="font-medium">Use AI Models</span>
+                  </label>
+                  <button 
+                    onClick={async () => {
+                      if (useAI) {
+                        const predicted = await predictWithAI(calculatedScenario)
+                        setScenarios(scenarios.map(s =>
+                          s.id === activeScenario ? predicted : s
+                        ))
+                      } else {
+                        const calculated = calculateScenarioSimple(calculatedScenario)
+                        setScenarios(scenarios.map(s =>
+                          s.id === activeScenario ? calculated : s
+                        ))
+                      }
+                    }}
+                    disabled={isAIPredicting}
+                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAIPredicting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Predicting with AI...
+                      </>
+                    ) : (
+                      <>
+                        {useAI ? <Sparkles size={16} /> : <Play size={16} />}
+                        {useAI ? 'Predict with AI' : 'Run Simulation'}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Sliders */}
@@ -339,6 +476,69 @@ export default function SimulatorPage() {
                     <div className="text-purple-400 text-sm font-semibold mb-1">ROI Timeline</div>
                     <div className="text-3xl font-bold text-white">{calculatedScenario.result.roi.toFixed(1)} mo</div>
                     <div className="text-white/60 text-sm mt-1">Payback period</div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ML Predictions Display */}
+              {mlPredictions && useAI && calculatedScenario.result && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6 p-4 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 rounded-lg border-2 border-cyan-500/30"
+                >
+                  <h4 className="text-sm font-semibold text-cyan-400 mb-3 flex items-center gap-2">
+                    <Sparkles size={16} />
+                    AI Model Predictions Breakdown
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {mlPredictions.logistics && !mlPredictions.logistics.error && (
+                      <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+                        <div className="text-white/60 text-xs mb-1">🚚 Logistics Model</div>
+                        <div className="text-white font-bold text-lg">
+                          {mlPredictions.logistics.co2_kg.toFixed(1)} kg CO₂
+                        </div>
+                        <div className="text-xs text-cyan-400 mt-1">
+                          Confidence: {(mlPredictions.logistics.confidence * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                    )}
+                    {mlPredictions.factory && !mlPredictions.factory.error && (
+                      <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+                        <div className="text-white/60 text-xs mb-1">🏭 Factory Model</div>
+                        <div className="text-white font-bold text-lg">
+                          {mlPredictions.factory.co2_kg.toFixed(1)} kg CO₂
+                        </div>
+                        <div className="text-xs text-cyan-400 mt-1">
+                          Confidence: {(mlPredictions.factory.confidence * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                    )}
+                    {mlPredictions.warehouse && !mlPredictions.warehouse.error && (
+                      <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+                        <div className="text-white/60 text-xs mb-1">📦 Warehouse Model</div>
+                        <div className="text-white font-bold text-lg">
+                          {mlPredictions.warehouse.co2_kg.toFixed(1)} kg CO₂
+                        </div>
+                        <div className="text-xs text-cyan-400 mt-1">
+                          Confidence: {(mlPredictions.warehouse.confidence * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                    )}
+                    {mlPredictions.delivery && !mlPredictions.delivery.error && (
+                      <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+                        <div className="text-white/60 text-xs mb-1">🚐 Delivery Model</div>
+                        <div className="text-white font-bold text-lg">
+                          {mlPredictions.delivery.co2_kg.toFixed(1)} kg CO₂
+                        </div>
+                        <div className="text-xs text-cyan-400 mt-1">
+                          Confidence: {(mlPredictions.delivery.confidence * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 text-xs text-white/50 text-center">
+                    ✨ Powered by 4 trained machine learning models
                   </div>
                 </motion.div>
               )}
