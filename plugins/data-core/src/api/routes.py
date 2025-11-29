@@ -204,30 +204,50 @@ async def ingest_upload(file: UploadFile = File(...)):
                 line_match = re.search(r'line (\d+)', error_msg)
                 line_num = line_match.group(1) if line_match else "unknown"
                 
-                # Try with on_bad_lines='skip' for newer pandas
+                # Try with engine='python' which is more flexible
                 try:
+                    logger.info("Retrying with Python engine for more flexible parsing...")
                     df = pd.read_csv(
                         pd.io.common.BytesIO(contents), 
-                        on_bad_lines='skip',
+                        engine='python',  # More flexible parser
                         skipinitialspace=True,
-                        skip_blank_lines=True
+                        skip_blank_lines=True,
+                        na_values=['', 'NA', 'N/A', 'null', 'NULL'],
+                        keep_default_na=True,
+                        on_bad_lines='warn'  # Warn but don't skip
                     )
-                    logger.warning(f"Skipped malformed line {line_num} in CSV. Continuing with valid rows.")
+                    logger.info(f"Successfully parsed with Python engine: {len(df)} rows, {len(df.columns)} columns")
                     
                     # Update job with warning
                     supabase_client.update_ingest_job(job_id, {
-                        "errors": [f"Warning: Skipped malformed line {line_num}. CSV has inconsistent number of columns."]
+                        "errors": [f"Warning: CSV had parsing issues at line {line_num}, but data was recovered."]
                     })
-                except (TypeError, Exception) as e2:
-                    # Fallback: provide clear error message
-                    supabase_client.update_ingest_job(job_id, {
-                        "status": "failed",
-                        "errors": [f"CSV parsing failed at line {line_num}. Please ensure all rows have the same number of columns. Error: {error_msg}"]
-                    })
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"CSV file is malformed at line {line_num}. Please check that all rows have the same number of columns. Original error: {error_msg}"
-                    )
+                except Exception as e2:
+                    # Last resort: try with on_bad_lines='skip'
+                    try:
+                        logger.warning("Trying with skip bad lines...")
+                        df = pd.read_csv(
+                            pd.io.common.BytesIO(contents), 
+                            engine='python',
+                            on_bad_lines='skip',
+                            skipinitialspace=True,
+                            skip_blank_lines=True
+                        )
+                        logger.warning(f"Skipped malformed lines. Processed {len(df)} rows.")
+                        
+                        supabase_client.update_ingest_job(job_id, {
+                            "errors": [f"Warning: Skipped malformed lines. Processed {len(df)} valid rows."]
+                        })
+                    except Exception as e3:
+                        # Complete failure
+                        supabase_client.update_ingest_job(job_id, {
+                            "status": "failed",
+                            "errors": [f"CSV parsing failed at line {line_num}. Please ensure all rows have the same number of columns. Error: {error_msg}"]
+                        })
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"CSV file is malformed at line {line_num}. Please check that all rows have the same number of columns. Original error: {error_msg}"
+                        )
         elif file.filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(pd.io.common.BytesIO(contents))
         else:
