@@ -132,9 +132,10 @@ class HotspotEngine:
             features = {
                 "distance_km": event.get("distance_km", 0),
                 "load_kg": event.get("load_kg", 0),  # Fixed: was load_weight_kg
-                "vehicle_type": event.get("vehicle_type", "truck_diesel"),
+                "vehicle_type": event.get("vehicle_type", "truck"),
                 "fuel_type": event.get("fuel_type", "diesel"),
-                "avg_speed": event.get("speed", 50)  # Fixed: was avg_speed
+                "avg_speed": event.get("speed", 50),  # Fixed: was avg_speed
+                "stop_events": event.get("stop_events", 0)
             }
             predicted_co2 = await ml_client.predict_logistics(features)
             
