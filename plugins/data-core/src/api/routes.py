@@ -184,11 +184,54 @@ async def ingest_upload(file: UploadFile = File(...)):
         contents = await file.read()
         
         if file.filename.endswith('.csv'):
-            df = pd.read_csv(pd.io.common.BytesIO(contents))
+            # Try reading with error handling for malformed CSV
+            try:
+                # Read CSV with flexible options to handle trailing commas and empty values
+                df = pd.read_csv(
+                    pd.io.common.BytesIO(contents),
+                    skipinitialspace=True,  # Skip spaces after delimiter
+                    skip_blank_lines=True,   # Skip blank lines
+                    na_values=['', 'NA', 'N/A', 'null', 'NULL'],  # Treat these as NaN
+                    keep_default_na=True
+                )
+                logger.info(f"Successfully parsed CSV: {len(df)} rows, {len(df.columns)} columns")
+            except pd.errors.ParserError as e:
+                error_msg = str(e)
+                logger.error(f"CSV parsing error: {error_msg}")
+                
+                # Extract line number from error if available
+                import re
+                line_match = re.search(r'line (\d+)', error_msg)
+                line_num = line_match.group(1) if line_match else "unknown"
+                
+                # Try with on_bad_lines='skip' for newer pandas
+                try:
+                    df = pd.read_csv(
+                        pd.io.common.BytesIO(contents), 
+                        on_bad_lines='skip',
+                        skipinitialspace=True,
+                        skip_blank_lines=True
+                    )
+                    logger.warning(f"Skipped malformed line {line_num} in CSV. Continuing with valid rows.")
+                    
+                    # Update job with warning
+                    supabase_client.update_ingest_job(job_id, {
+                        "errors": [f"Warning: Skipped malformed line {line_num}. CSV has inconsistent number of columns."]
+                    })
+                except (TypeError, Exception) as e2:
+                    # Fallback: provide clear error message
+                    supabase_client.update_ingest_job(job_id, {
+                        "status": "failed",
+                        "errors": [f"CSV parsing failed at line {line_num}. Please ensure all rows have the same number of columns. Error: {error_msg}"]
+                    })
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"CSV file is malformed at line {line_num}. Please check that all rows have the same number of columns. Original error: {error_msg}"
+                    )
         elif file.filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(pd.io.common.BytesIO(contents))
         else:
-            raise HTTPException(status_code=400, detail="Unsupported file format")
+            raise HTTPException(status_code=400, detail="Unsupported file format. Please upload CSV or Excel files.")
         
         # Update job with total rows
         supabase_client.update_ingest_job(job_id, {
@@ -203,11 +246,19 @@ async def ingest_upload(file: UploadFile = File(...)):
         is_valid, errors = SchemaValidator.validate_dataframe(df)
         
         if not is_valid:
+            # Add helpful message about required columns
+            error_detail = {
+                "errors": errors,
+                "required_columns": ["timestamp", "supplier_id", "event_type"],
+                "optional_columns": ["distance_km", "load_kg", "vehicle_type", "fuel_type", "speed"],
+                "your_columns": list(df.columns),
+                "help": "Ensure your CSV has at minimum: timestamp, supplier_id, and event_type columns"
+            }
             supabase_client.update_ingest_job(job_id, {
                 "status": "failed",
                 "errors": errors
             })
-            raise HTTPException(status_code=400, detail={"errors": errors})
+            raise HTTPException(status_code=400, detail=error_detail)
         
         # Normalize
         supabase_client.update_ingest_job(job_id, {"status": "normalizing"})

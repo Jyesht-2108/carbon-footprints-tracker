@@ -17,7 +17,12 @@ OPTIONAL_COLUMNS = [
     "warehouse_id",
     "factory_id",
     "speed",
-    "stop_events"
+    "stop_events",
+    "furnace_usage",
+    "cooling_load",
+    "shift_hours",
+    "refrigeration_load",
+    "inventory_volume"
 ]
 
 # Vehicle type mappings

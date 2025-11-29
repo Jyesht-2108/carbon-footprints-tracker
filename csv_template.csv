@@ -1,0 +1,6 @@
+supplier_id,timestamp,distance_km,load_kg,vehicle_type,fuel_type,speed,event_type
+Supplier_A,2025-11-28 08:00:00,100,400,truck_diesel,diesel,60,logistics
+Supplier_B,2025-11-28 09:00:00,150,500,truck_ev,electric,70,logistics
+Supplier_C,2025-11-28 10:00:00,200,600,van_diesel,diesel,65,logistics
+Supplier_D,2025-11-28 11:00:00,120,450,truck_diesel,diesel,62,logistics
+Supplier_E,2025-11-28 12:00:00,180,550,truck_ev,electric,68,logistics
