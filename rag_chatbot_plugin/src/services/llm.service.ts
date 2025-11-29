@@ -87,26 +87,52 @@ Provide a helpful, concise answer:`;
         const response = await this.model.invoke(chatPrompt);
         
         // Check if response has content
-        if (!response || !response.content) {
-          logger.warn(`Chat attempt ${attempt}: Empty response from AI model`);
+        if (!response) {
+          logger.warn(`Chat attempt ${attempt}: No response from AI model`);
           if (attempt < 3) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+            await new Promise(resolve => setTimeout(resolve, 1000));
             continue;
           }
-          throw new Error('Empty response from AI model after 3 attempts');
+          throw new Error('No response from AI model after 3 attempts');
         }
         
-        const answer = typeof response.content === 'string' 
-          ? response.content 
-          : response.content.toString();
+        // Handle different response formats
+        let answer: string;
+        if (typeof response === 'string') {
+          answer = response;
+        } else if (response.content) {
+          answer = typeof response.content === 'string' 
+            ? response.content 
+            : Array.isArray(response.content) && response.content.length > 0
+              ? (response.content[0] as any).text || response.content[0].toString()
+              : response.content.toString();
+        } else if ((response as any).text) {
+          answer = (response as any).text;
+        } else {
+          logger.warn(`Chat attempt ${attempt}: Unexpected response format`, { response: JSON.stringify(response).substring(0, 200) });
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          throw new Error('Unexpected response format from AI model');
+        }
+        
+        if (!answer || answer.trim().length === 0) {
+          logger.warn(`Chat attempt ${attempt}: Empty answer extracted`);
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          throw new Error('Empty answer from AI model');
+        }
         
         logger.info(`Generated chat response (attempt ${attempt})`);
         return answer;
         
       } catch (error: any) {
         logger.error(`Chat attempt ${attempt} failed`, { 
-          error: error.message,
-          stack: error.stack?.split('\n')[0]
+          error: error?.message || 'Unknown error',
+          stack: error?.stack ? error.stack.split('\n')[0] : 'No stack trace'
         });
         
         if (attempt < 3) {
