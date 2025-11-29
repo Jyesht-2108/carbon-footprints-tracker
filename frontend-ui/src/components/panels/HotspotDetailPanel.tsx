@@ -257,10 +257,24 @@ export default function HotspotDetailPanel({ hotspot, onClose }: HotspotDetailPa
 
             {/* Action Buttons */}
             <div className="flex gap-3">
-              <button className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-lg hover:shadow-lg hover:scale-105 transition-all">
+              <button 
+                onClick={() => {
+                  alert(`Hotspot #${hotspot.id} marked as resolved!`)
+                  onClose()
+                }}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-lg hover:shadow-lg hover:scale-105 transition-all"
+              >
                 Mark as Resolved
               </button>
-              <button className="flex-1 px-6 py-3 bg-white/10 text-white font-bold rounded-lg hover:bg-white/20 transition-all">
+              <button 
+                onClick={() => {
+                  const note = prompt('Add a note for this hotspot:')
+                  if (note) {
+                    alert(`Note added: "${note}"`)
+                  }
+                }}
+                className="flex-1 px-6 py-3 bg-white/10 text-white font-bold rounded-lg hover:bg-white/20 transition-all"
+              >
                 Add Note
               </button>
             </div>
