@@ -36,9 +36,10 @@ export default function EmissionsHeatmap({ data }: EmissionsHeatmapProps) {
   // Get color based on intensity
   const getColor = (value: number) => {
     const intensity = value / maxValue
-    if (intensity > 0.7) return 'from-red-500 to-pink-600'
-    if (intensity > 0.4) return 'from-amber-500 to-orange-600'
-    if (intensity > 0.2) return 'from-yellow-500 to-amber-500'
+    // Align with new thresholds
+    if (intensity > 0.9) return 'from-red-500 to-pink-600'
+    if (intensity > 0.7) return 'from-amber-500 to-orange-600'
+    if (intensity > 0.4) return 'from-yellow-500 to-amber-500'
     return 'from-emerald-500 to-teal-600'
   }
 
@@ -50,9 +51,10 @@ export default function EmissionsHeatmap({ data }: EmissionsHeatmapProps) {
 
   const getIntensityLabel = (value: number) => {
     const intensity = value / maxValue
-    if (intensity > 0.7) return 'Critical'
-    if (intensity > 0.4) return 'High'
-    if (intensity > 0.2) return 'Medium'
+    // More reasonable thresholds - only top 10% is critical
+    if (intensity > 0.9) return 'Critical'
+    if (intensity > 0.7) return 'High'
+    if (intensity > 0.4) return 'Medium'
     return 'Low'
   }
 
