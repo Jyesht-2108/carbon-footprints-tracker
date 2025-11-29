@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useTheme } from '../../contexts/ThemeContext'
 
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard', gradient: 'from-cyan-500 to-blue-600' },
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', gradient: 'from-cyan-500 to-blue-600' },
   { path: '/ingest', icon: Upload, label: 'Data Upload', gradient: 'from-green-500 to-emerald-600' },
   { path: '/insights', icon: Lightbulb, label: 'AI Insights', gradient: 'from-yellow-500 to-orange-600' },
   { path: '/alerts', icon: Bell, label: 'Alerts', gradient: 'from-orange-500 to-red-600' },
