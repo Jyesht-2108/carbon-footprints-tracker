@@ -10,77 +10,49 @@ router = APIRouter(prefix="/emissions", tags=["dashboard"])
 
 @router.get("/current")
 async def get_current_emissions() -> Dict[str, Any]:
-    """Get current emission pulse."""
+    """Get current emission pulse using ML predictions."""
     try:
-        # Get recent events
-        events = await db_client.get_recent_events(limit=100)
+        # Get recent predictions (last hour worth of data)
+        predictions = await db_client.get_recent_predictions(limit=100)
         
-        if not events:
+        if not predictions:
+            logger.warning("No predictions found, returning zero emissions")
             return {
                 "current_rate": 0,
-                "trend": "stable",
+                "trend": 0,
                 "categories": {},
                 "total_today": 0,
                 "target": 1000,
                 "last_updated": None
             }
         
-        # Calculate CO2 from event data (since co2_kg doesn't exist in schema)
-        # Simple formula: distance_km * load_kg * emission_factor
-        # Emission factors (kg CO2 per km per ton): diesel=0.062, electric=0.015, hybrid=0.035
-        emission_factors = {
-            "diesel": 0.062,
-            "electric": 0.015,
-            "hybrid": 0.035,
-            "petrol": 0.068,
-            "gasoline": 0.068
-        }
-        
+        # Calculate total CO2 from predictions
         total_co2 = 0
         categories = {}
         
-        for event in events:
-            distance = event.get("distance_km", 0) or 0
-            load = event.get("load_kg", 0) or 0
-            fuel_type = (event.get("fuel_type") or "diesel").lower()
-            
-            # Calculate CO2: distance * (load in tons) * emission factor
-            emission_factor = emission_factors.get(fuel_type, 0.062)  # Default to diesel
-            co2 = distance * (load / 1000) * emission_factor  # Convert kg to tons
-            
+        for pred in predictions:
+            co2 = pred.get("predicted_co2", 0) or 0
             total_co2 += co2
             
-            # Group by supplier
-            supplier = event.get("supplier_id", "Unknown")
-            categories[supplier] = categories.get(supplier, 0) + co2
+            # Group by prediction type
+            pred_type = pred.get("prediction_type", "unknown")
+            categories[pred_type] = categories.get(pred_type, 0) + co2
         
-        avg_co2 = total_co2 / len(events) if events else 0
+        # Calculate hourly rate (assuming predictions are for recent events)
+        avg_co2_per_event = total_co2 / len(predictions) if predictions else 0
+        # Estimate hourly rate (assuming ~10 events per hour on average)
+        hourly_rate = avg_co2_per_event * 10
         
         # Calculate trend (compare first half vs second half)
         trend = 0
-        if len(events) >= 4:
-            mid = len(events) // 2
+        if len(predictions) >= 4:
+            mid = len(predictions) // 2
             
-            # Calculate CO2 for first half
-            first_half_co2 = 0
-            for event in events[:mid]:
-                distance = event.get("distance_km", 0) or 0
-                load = event.get("load_kg", 0) or 0
-                fuel_type = (event.get("fuel_type") or "diesel").lower()
-                emission_factor = emission_factors.get(fuel_type, 0.062)
-                first_half_co2 += distance * (load / 1000) * emission_factor
-            
-            # Calculate CO2 for second half
-            second_half_co2 = 0
-            for event in events[mid:]:
-                distance = event.get("distance_km", 0) or 0
-                load = event.get("load_kg", 0) or 0
-                fuel_type = (event.get("fuel_type") or "diesel").lower()
-                emission_factor = emission_factors.get(fuel_type, 0.062)
-                second_half_co2 += distance * (load / 1000) * emission_factor
+            first_half_co2 = sum(p.get("predicted_co2", 0) or 0 for p in predictions[:mid])
+            second_half_co2 = sum(p.get("predicted_co2", 0) or 0 for p in predictions[mid:])
             
             first_half_avg = first_half_co2 / mid
-            second_half_avg = second_half_co2 / (len(events) - mid)
+            second_half_avg = second_half_co2 / (len(predictions) - mid)
             
             # Calculate percentage change
             if first_half_avg > 0:
@@ -88,14 +60,16 @@ async def get_current_emissions() -> Dict[str, Any]:
             else:
                 trend = 0
         
+        logger.info(f"Current emissions: {hourly_rate:.2f} kg CO₂/hour from {len(predictions)} predictions")
+        
         return {
-            "current_rate": round(avg_co2, 2),
-            "trend": trend,  # Now a number (percentage)
+            "current_rate": round(hourly_rate, 2),
+            "trend": trend,
             "categories": categories,
             "total_today": round(total_co2, 2),
-            "target": 1000,  # Default target
-            "last_updated": events[0].get("timestamp") if events else None,
-            "event_count": len(events)
+            "target": 1000,
+            "last_updated": predictions[0].get("created_at") if predictions else None,
+            "prediction_count": len(predictions)
         }
         
     except Exception as e:

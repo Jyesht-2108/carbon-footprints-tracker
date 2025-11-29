@@ -136,10 +136,18 @@ class HotspotEngine:
         
         # Use event_type field to determine which prediction to make
         if prediction_type == "logistics":
-            # Logistics event
+            # Logistics event - ensure all required fields are present and valid
+            distance = float(event.get("distance_km", 0) or 0)
+            load = float(event.get("load_kg", 0) or 0)
+            
+            # Skip if missing critical data
+            if distance <= 0 or load <= 0:
+                logger.warning(f"Skipping logistics prediction - invalid data: distance={distance}, load={load}")
+                return None
+            
             features = {
-                "distance_km": float(event.get("distance_km", 0) or 0),
-                "load_kg": float(event.get("load_kg", 0) or 0),
+                "distance_km": distance,
+                "load_kg": load,
                 "vehicle_type": event.get("vehicle_type", "truck"),
                 "fuel_type": event.get("fuel_type", "diesel"),
                 "avg_speed": float(event.get("speed", 50) or 50),
@@ -148,20 +156,30 @@ class HotspotEngine:
             predicted_co2 = await ml_client.predict_logistics(features)
             
         elif prediction_type == "factory":
-            # Factory event
+            # Factory event - ensure all required fields are present and valid
+            energy = float(event.get("energy_kwh", 0) or 0)
+            shift_hours = float(event.get("shift_hours", 8) or 8)
+            
+            # Skip if missing critical data
+            if energy <= 0 or shift_hours <= 0:
+                logger.warning(f"Skipping factory prediction - invalid data: energy={energy}, shift_hours={shift_hours}")
+                return None
+            
             features = {
-                "energy_kwh": float(event.get("energy_kwh", 0) or 0),
-                "shift_hours": float(event.get("shift_hours", 8) or 8),
-                "machine_runtime_hours": float(event.get("shift_hours", 8) or 8),
+                "energy_kwh": energy,
+                "shift_hours": shift_hours,
+                "machine_runtime_hours": shift_hours,  # Use shift_hours as default
                 "furnace_usage": float(event.get("furnace_usage", 0) or 0),
                 "cooling_load": float(event.get("cooling_load", 0) or 0)
             }
             predicted_co2 = await ml_client.predict_factory(features)
             
         elif prediction_type == "warehouse":
-            # Warehouse event
+            # Warehouse event - temperature is required
+            temperature = float(event.get("temperature", 20) or 20)
+            
             features = {
-                "temperature": float(event.get("temperature", 20) or 20),
+                "temperature": temperature,
                 "energy_kwh": float(event.get("energy_kwh", 0) or 0),
                 "refrigeration_load": float(event.get("refrigeration_load", 0) or 0),
                 "inventory_volume": float(event.get("inventory_volume", 0) or 0)
@@ -169,9 +187,16 @@ class HotspotEngine:
             predicted_co2 = await ml_client.predict_warehouse(features)
             
         elif prediction_type == "delivery":
-            # Delivery event
+            # Delivery event - ensure route_length is valid
+            route_length = float(event.get("distance_km", 0) or 0)
+            
+            # Skip if missing critical data
+            if route_length <= 0:
+                logger.warning(f"Skipping delivery prediction - invalid route_length: {route_length}")
+                return None
+            
             features = {
-                "route_length": float(event.get("distance_km", 0) or 0),
+                "route_length": route_length,
                 "vehicle_type": event.get("vehicle_type", "truck"),
                 "traffic_score": int(event.get("traffic_score", 3) or 3),
                 "delivery_count": int(event.get("delivery_count", 1) or 1)

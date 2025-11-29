@@ -95,6 +95,19 @@ class SupabaseClient:
             logger.error(f"Error upserting baseline: {e}")
             return None
     
+    async def get_recent_predictions(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent predictions."""
+        try:
+            response = self.client.table("predictions")\
+                .select("*")\
+                .order("created_at", desc=True)\
+                .limit(limit)\
+                .execute()
+            return response.data
+        except Exception as e:
+            logger.error(f"Error fetching recent predictions: {e}")
+            return []
+    
     async def get_predictions_by_entity(self, entity: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get predictions for a specific entity (supplier/route)."""
         try:
