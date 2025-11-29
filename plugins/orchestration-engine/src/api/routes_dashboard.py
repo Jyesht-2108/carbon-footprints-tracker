@@ -27,14 +27,24 @@ async def get_current_emissions() -> Dict[str, Any]:
             }
         
         # Get events to map predictions to suppliers
-        events = await db_client.get_recent_events(limit=100)
-        event_supplier_map = {e.get("id"): e.get("supplier_id", "Unknown") for e in events}
+        events = await db_client.get_recent_events(limit=200)
         
-        # Calculate average CO2 per supplier (not total sum)
-        # This gives us the average emission per event for each supplier
+        # Create mapping using both id and event_id as keys
+        event_supplier_map = {}
+        for e in events:
+            event_id = e.get("id")
+            supplier = e.get("supplier_id") or e.get("supplier_name") or "Unknown"
+            if event_id:
+                event_supplier_map[event_id] = supplier
+                event_supplier_map[str(event_id)] = supplier  # Also store string version
+        
+        logger.info(f"Created supplier map with {len(event_supplier_map)} entries from {len(events)} events")
+        
+        # Calculate TYPICAL (25th percentile) CO2 per supplier per event
+        # This shows baseline/typical emissions, filtering out anomalies and spikes
+        # 25th percentile represents "good performance" baseline
         total_co2 = 0
-        categories_sum = {}
-        categories_count = {}
+        supplier_values = {}  # Store all values for percentile calculation
         
         for pred in predictions:
             co2 = pred.get("predicted_co2", 0) or 0
@@ -42,17 +52,31 @@ async def get_current_emissions() -> Dict[str, Any]:
             
             # Get supplier from event mapping
             event_id = pred.get("event_id")
-            supplier = event_supplier_map.get(event_id, "Unknown")
+            supplier = event_supplier_map.get(event_id) or event_supplier_map.get(str(event_id)) or "Unknown"
             
-            # Group by supplier and count occurrences
-            categories_sum[supplier] = categories_sum.get(supplier, 0) + co2
-            categories_count[supplier] = categories_count.get(supplier, 0) + 1
+            # Store all values for percentile calculation
+            if supplier not in supplier_values:
+                supplier_values[supplier] = []
+            supplier_values[supplier].append(co2)
         
-        # Calculate average per supplier (not sum)
-        categories = {
-            supplier: categories_sum[supplier] / categories_count[supplier]
-            for supplier in categories_sum
-        }
+        # Calculate 25th percentile per supplier (typical baseline performance)
+        # This filters out spikes and anomalies, showing normal operations
+        categories = {}
+        for supplier, values in supplier_values.items():
+            sorted_values = sorted(values)
+            n = len(sorted_values)
+            if n == 0:
+                percentile_25 = 0
+            else:
+                # 25th percentile index
+                idx = max(0, n // 4)
+                percentile_25 = sorted_values[idx]
+            categories[supplier] = round(percentile_25, 2)
+        
+        supplier_counts = {s: len(v) for s, v in supplier_values.items()}
+        
+        logger.info(f"Typical (25th percentile) emissions per event by supplier: {categories}")
+        logger.info(f"Event counts by supplier: {supplier_counts}")
         
         # Calculate average CO2 per event (this is the "current rate")
         avg_co2_per_event = total_co2 / len(predictions) if predictions else 0
