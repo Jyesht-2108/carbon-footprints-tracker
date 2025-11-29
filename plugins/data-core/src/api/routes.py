@@ -67,30 +67,41 @@ async def ingest_csv(file: UploadFile = File(...)):
             }
             supabase_client.insert_raw_event(raw_event)
         
+        # Helper function to convert pandas values to JSON-safe values
+        def safe_value(value):
+            """Convert pandas NaN/NaT to None, handle timestamps"""
+            if pd.isna(value):
+                return None
+            elif isinstance(value, pd.Timestamp):
+                return value.isoformat()
+            elif isinstance(value, (int, float)):
+                return None if pd.isna(value) else float(value)
+            return value
+        
         # Store normalized events
         for _, row in df.iterrows():
             normalized_event = {
-                "event_type": row.get("event_type"),
-                "supplier_id": row.get("supplier_id"),
+                "event_type": safe_value(row.get("event_type")),
+                "supplier_id": safe_value(row.get("supplier_id")),
                 # Logistics fields
-                "distance_km": row.get("distance_km"),
-                "load_kg": row.get("load_kg"),
-                "vehicle_type": row.get("vehicle_type"),
-                "fuel_type": row.get("fuel_type"),
-                "speed": row.get("speed"),
-                "stop_events": row.get("stop_events"),
+                "distance_km": safe_value(row.get("distance_km")),
+                "load_kg": safe_value(row.get("load_kg")),
+                "vehicle_type": safe_value(row.get("vehicle_type")),
+                "fuel_type": safe_value(row.get("fuel_type")),
+                "speed": safe_value(row.get("speed")),
+                "stop_events": safe_value(row.get("stop_events")),
                 # Factory fields
-                "energy_kwh": row.get("energy_kwh"),
-                "furnace_usage": row.get("furnace_usage"),
-                "cooling_load": row.get("cooling_load"),
-                "shift_hours": row.get("shift_hours"),
+                "energy_kwh": safe_value(row.get("energy_kwh")),
+                "furnace_usage": safe_value(row.get("furnace_usage")),
+                "cooling_load": safe_value(row.get("cooling_load")),
+                "shift_hours": safe_value(row.get("shift_hours")),
                 # Warehouse fields
-                "temperature": row.get("temperature"),
-                "refrigeration_load": row.get("refrigeration_load"),
-                "inventory_volume": row.get("inventory_volume"),
+                "temperature": safe_value(row.get("temperature")),
+                "refrigeration_load": safe_value(row.get("refrigeration_load")),
+                "inventory_volume": safe_value(row.get("inventory_volume")),
                 # Common fields
                 "timestamp": row.get("timestamp").isoformat() if pd.notna(row.get("timestamp")) else None,
-                "is_outlier": bool(row.get("is_outlier", False)),
+                "is_outlier": bool(row.get("is_outlier", False)) if pd.notna(row.get("is_outlier")) else False,
                 "created_at": datetime.utcnow().isoformat()
             }
             supabase_client.insert_normalized_event(normalized_event)
@@ -305,6 +316,17 @@ async def ingest_upload(file: UploadFile = File(...)):
         # Insert data
         supabase_client.update_ingest_job(job_id, {"status": "inserting"})
         
+        # Helper function to convert pandas values to JSON-safe values
+        def safe_value(value):
+            """Convert pandas NaN/NaT to None, handle timestamps"""
+            if pd.isna(value):
+                return None
+            elif isinstance(value, pd.Timestamp):
+                return value.isoformat()
+            elif isinstance(value, (int, float)):
+                return None if pd.isna(value) else float(value)
+            return value
+        
         for idx, row in df.iterrows():
             # Convert row to dict and handle timestamps
             payload = row.to_dict()
@@ -316,7 +338,7 @@ async def ingest_upload(file: UploadFile = File(...)):
             
             # Insert raw
             raw_event = {
-                "supplier_id": row.get("supplier_id"),
+                "supplier_id": safe_value(row.get("supplier_id")),
                 "timestamp": row.get("timestamp").isoformat() if pd.notna(row.get("timestamp")) else None,
                 "payload": payload,
                 "data_source": "file_upload",
@@ -326,27 +348,27 @@ async def ingest_upload(file: UploadFile = File(...)):
             
             # Insert normalized
             normalized_event = {
-                "event_type": row.get("event_type"),
-                "supplier_id": row.get("supplier_id"),
+                "event_type": safe_value(row.get("event_type")),
+                "supplier_id": safe_value(row.get("supplier_id")),
                 # Logistics fields
-                "distance_km": row.get("distance_km"),
-                "load_kg": row.get("load_kg"),
-                "vehicle_type": row.get("vehicle_type"),
-                "fuel_type": row.get("fuel_type"),
-                "speed": row.get("speed"),
-                "stop_events": row.get("stop_events"),
+                "distance_km": safe_value(row.get("distance_km")),
+                "load_kg": safe_value(row.get("load_kg")),
+                "vehicle_type": safe_value(row.get("vehicle_type")),
+                "fuel_type": safe_value(row.get("fuel_type")),
+                "speed": safe_value(row.get("speed")),
+                "stop_events": safe_value(row.get("stop_events")),
                 # Factory fields
-                "energy_kwh": row.get("energy_kwh"),
-                "furnace_usage": row.get("furnace_usage"),
-                "cooling_load": row.get("cooling_load"),
-                "shift_hours": row.get("shift_hours"),
+                "energy_kwh": safe_value(row.get("energy_kwh")),
+                "furnace_usage": safe_value(row.get("furnace_usage")),
+                "cooling_load": safe_value(row.get("cooling_load")),
+                "shift_hours": safe_value(row.get("shift_hours")),
                 # Warehouse fields
-                "temperature": row.get("temperature"),
-                "refrigeration_load": row.get("refrigeration_load"),
-                "inventory_volume": row.get("inventory_volume"),
+                "temperature": safe_value(row.get("temperature")),
+                "refrigeration_load": safe_value(row.get("refrigeration_load")),
+                "inventory_volume": safe_value(row.get("inventory_volume")),
                 # Common fields
                 "timestamp": row.get("timestamp").isoformat() if pd.notna(row.get("timestamp")) else None,
-                "is_outlier": bool(row.get("is_outlier", False)),
+                "is_outlier": bool(row.get("is_outlier", False)) if pd.notna(row.get("is_outlier")) else False,
                 "created_at": datetime.utcnow().isoformat()
             }
             supabase_client.insert_normalized_event(normalized_event)
