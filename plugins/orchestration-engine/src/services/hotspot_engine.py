@@ -266,21 +266,39 @@ class HotspotEngine:
         except Exception as e:
             logger.error(f"Error generating recommendations: {e}")
     
-    async def scan_for_hotspots(self) -> List[Dict[str, Any]]:
+    async def scan_for_hotspots(self, limit: int = 200) -> List[Dict[str, Any]]:
         """Scan recent events for hotspots."""
         try:
-            logger.info("Starting hotspot scan...")
+            logger.info(f"Starting hotspot scan (processing up to {limit} events)...")
             
-            # Get events without predictions
-            events = await db_client.get_events_without_predictions(limit=50)
+            # Get recent events (increased limit for faster processing after upload)
+            events = await db_client.get_events_without_predictions(limit=limit)
+            
+            if not events:
+                logger.info("No events to process")
+                return []
+            
+            logger.info(f"Processing {len(events)} events for predictions...")
             
             hotspots = []
-            for event in events:
-                hotspot = await self.detect_hotspots_for_event(event)
-                if hotspot:
-                    hotspots.append(hotspot)
+            predictions_generated = 0
             
-            logger.info(f"Hotspot scan complete. Found {len(hotspots)} hotspots.")
+            for idx, event in enumerate(events, 1):
+                try:
+                    hotspot = await self.detect_hotspots_for_event(event)
+                    if hotspot:
+                        hotspots.append(hotspot)
+                    predictions_generated += 1
+                    
+                    # Log progress every 10 events
+                    if idx % 10 == 0:
+                        logger.info(f"Progress: {idx}/{len(events)} events processed, {len(hotspots)} hotspots found")
+                        
+                except Exception as e:
+                    logger.error(f"Error processing event {event.get('id')}: {e}")
+                    continue
+            
+            logger.info(f"✅ Hotspot scan complete. Processed {predictions_generated} events, found {len(hotspots)} hotspots.")
             return hotspots
             
         except Exception as e:

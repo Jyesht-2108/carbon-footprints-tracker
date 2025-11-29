@@ -93,12 +93,13 @@ async def trigger_immediate_analysis():
     """
     Trigger immediate hotspot detection and prediction.
     Called automatically after CSV upload.
+    Processes up to 200 recent events.
     """
     try:
         logger.info("🚀 Immediate analysis triggered by CSV upload")
         
-        # Run hotspot detection immediately
-        hotspots = await hotspot_engine.scan_for_hotspots()
+        # Run hotspot detection immediately with higher limit
+        hotspots = await hotspot_engine.scan_for_hotspots(limit=200)
         
         logger.info(f"✅ Immediate analysis complete. Found {len(hotspots)} hotspots")
         
@@ -106,14 +107,16 @@ async def trigger_immediate_analysis():
             "status": "success",
             "message": "Immediate analysis completed",
             "hotspots_detected": len(hotspots),
-            "hotspots": hotspots
+            "predictions_generated": len(hotspots),  # Each hotspot has a prediction
+            "hotspots": hotspots[:10]  # Return first 10 for response size
         }
     
     except Exception as e:
         logger.error(f"❌ Error in immediate analysis: {e}")
         return {
             "status": "error",
-            "message": str(e)
+            "message": str(e),
+            "hotspots_detected": 0
         }
 
 

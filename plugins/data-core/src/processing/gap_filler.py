@@ -39,32 +39,51 @@ class GapFiller:
     
     def fill_gaps(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Fill missing values in DataFrame
+        Fill missing values in DataFrame based on event type.
+        Only fills gaps for fields relevant to each event type.
         Adds columns: {field}_filled, {field}_confidence
         """
         df = df.copy()
+        
+        # Define which fields are relevant for each event type
+        event_type_fields = {
+            "logistics": ["distance_km", "load_kg", "speed"],
+            "factory": ["energy_kwh"],
+            "warehouse": ["energy_kwh"],
+            "delivery": ["distance_km", "speed"]
+        }
         
         for field in GAP_FILLABLE_FIELDS:
             if field not in df.columns:
                 continue
             
-            missing_mask = df[field].isna()
-            missing_count = missing_mask.sum()
-            
-            if missing_count == 0:
-                continue
-            
-            logger.info(f"Filling {missing_count} missing values for {field}")
-            
-            # Use median-based filling as fallback
-            filled_values, confidences = self._fill_with_median(df, field, missing_mask)
-            
-            # Mark filled values
-            df[f"{field}_filled"] = False
-            df.loc[missing_mask, f"{field}_filled"] = True
-            df.loc[missing_mask, field] = filled_values
-            df[f"{field}_confidence"] = 1.0
-            df.loc[missing_mask, f"{field}_confidence"] = confidences
+            # Only fill gaps for rows where this field is relevant to the event type
+            for event_type, relevant_fields in event_type_fields.items():
+                if field not in relevant_fields:
+                    continue
+                
+                # Get mask for this event type with missing values
+                event_mask = df["event_type"] == event_type
+                missing_mask = event_mask & df[field].isna()
+                missing_count = missing_mask.sum()
+                
+                if missing_count == 0:
+                    continue
+                
+                logger.info(f"Filling {missing_count} missing values for {field} in {event_type} events")
+                
+                # Use median-based filling as fallback
+                filled_values, confidences = self._fill_with_median(df[event_mask], field, df[event_mask][field].isna())
+                
+                # Mark filled values
+                if f"{field}_filled" not in df.columns:
+                    df[f"{field}_filled"] = False
+                if f"{field}_confidence" not in df.columns:
+                    df[f"{field}_confidence"] = 1.0
+                    
+                df.loc[missing_mask, f"{field}_filled"] = True
+                df.loc[missing_mask, field] = filled_values
+                df.loc[missing_mask, f"{field}_confidence"] = confidences
         
         return df
     
