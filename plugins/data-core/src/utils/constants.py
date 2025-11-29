@@ -27,14 +27,21 @@ OPTIONAL_COLUMNS = [
 
 # Vehicle type mappings
 VEHICLE_TYPE_MAPPING = {
-    "2W": "two_wheeler",
+    "2w": "two_wheeler",
     "bike": "two_wheeler",
     "motorcycle": "two_wheeler",
     "truck": "truck",
+    "truck_diesel": "truck",
+    "truck_petrol": "truck",
+    "truck_cng": "truck",
     "mini_truck": "mini_truck",
     "van": "van",
+    "van_diesel": "van",
+    "van_petrol": "van",
+    "van_cng": "van",
     "ev": "electric_vehicle",
-    "electric": "electric_vehicle"
+    "electric": "electric_vehicle",
+    "electric_vehicle": "electric_vehicle"
 }
 
 # Fuel type mappings

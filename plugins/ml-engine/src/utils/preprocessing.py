@@ -7,10 +7,16 @@ from loguru import logger
 VEHICLE_TYPE_ENCODING = {
     "two_wheeler": 0,
     "mini_truck": 1,
+    "truck": 2,
     "truck_diesel": 2,
     "truck_cng": 3,
+    "truck_petrol": 2,
     "ev": 4,
-    "van": 5
+    "electric_vehicle": 4,
+    "van": 5,
+    "van_diesel": 5,
+    "van_petrol": 5,
+    "van_cng": 5
 }
 
 # Fuel type encoding
@@ -91,11 +97,21 @@ def preprocess_warehouse_input(data: Dict[str, Any]) -> np.ndarray:
     """Preprocess warehouse prediction input."""
     defaults = {
         "refrigeration_load": 0,
-        "inventory_volume": 0
+        "inventory_volume": 0,
+        "energy_kwh": 0,
+        "temperature": 20
     }
     
-    required = ["temperature", "energy_kwh"]
+    required = ["temperature"]
     processed = validate_and_fill_missing(data, required, defaults)
+    
+    # Calculate estimated energy_kwh if not provided
+    # Based on refrigeration load and inventory volume
+    if "energy_kwh" not in processed or processed["energy_kwh"] == 0:
+        refrigeration = processed.get("refrigeration_load", 0)
+        inventory = processed.get("inventory_volume", 0)
+        # Estimate: base 100 kWh + refrigeration load + inventory volume factor
+        processed["energy_kwh"] = 100 + refrigeration * 2 + inventory * 0.01
     
     features = np.array([
         processed["temperature"],

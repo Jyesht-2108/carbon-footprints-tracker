@@ -72,11 +72,23 @@ async def ingest_csv(file: UploadFile = File(...)):
             normalized_event = {
                 "event_type": row.get("event_type"),
                 "supplier_id": row.get("supplier_id"),
+                # Logistics fields
                 "distance_km": row.get("distance_km"),
                 "load_kg": row.get("load_kg"),
                 "vehicle_type": row.get("vehicle_type"),
                 "fuel_type": row.get("fuel_type"),
                 "speed": row.get("speed"),
+                "stop_events": row.get("stop_events"),
+                # Factory fields
+                "energy_kwh": row.get("energy_kwh"),
+                "furnace_usage": row.get("furnace_usage"),
+                "cooling_load": row.get("cooling_load"),
+                "shift_hours": row.get("shift_hours"),
+                # Warehouse fields
+                "temperature": row.get("temperature"),
+                "refrigeration_load": row.get("refrigeration_load"),
+                "inventory_volume": row.get("inventory_volume"),
+                # Common fields
                 "timestamp": row.get("timestamp").isoformat() if pd.notna(row.get("timestamp")) else None,
                 "is_outlier": bool(row.get("is_outlier", False)),
                 "created_at": datetime.utcnow().isoformat()
@@ -316,11 +328,23 @@ async def ingest_upload(file: UploadFile = File(...)):
             normalized_event = {
                 "event_type": row.get("event_type"),
                 "supplier_id": row.get("supplier_id"),
+                # Logistics fields
                 "distance_km": row.get("distance_km"),
                 "load_kg": row.get("load_kg"),
                 "vehicle_type": row.get("vehicle_type"),
                 "fuel_type": row.get("fuel_type"),
                 "speed": row.get("speed"),
+                "stop_events": row.get("stop_events"),
+                # Factory fields
+                "energy_kwh": row.get("energy_kwh"),
+                "furnace_usage": row.get("furnace_usage"),
+                "cooling_load": row.get("cooling_load"),
+                "shift_hours": row.get("shift_hours"),
+                # Warehouse fields
+                "temperature": row.get("temperature"),
+                "refrigeration_load": row.get("refrigeration_load"),
+                "inventory_volume": row.get("inventory_volume"),
+                # Common fields
                 "timestamp": row.get("timestamp").isoformat() if pd.notna(row.get("timestamp")) else None,
                 "is_outlier": bool(row.get("is_outlier", False)),
                 "created_at": datetime.utcnow().isoformat()
