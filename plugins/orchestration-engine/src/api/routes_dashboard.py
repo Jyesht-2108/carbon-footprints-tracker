@@ -26,22 +26,32 @@ async def get_current_emissions() -> Dict[str, Any]:
                 "last_updated": None
             }
         
-        # Calculate total CO2 from predictions
+        # Calculate average CO2 per prediction type (not total sum)
+        # This gives us the average emission per event for each category
         total_co2 = 0
-        categories = {}
+        categories_sum = {}
+        categories_count = {}
         
         for pred in predictions:
             co2 = pred.get("predicted_co2", 0) or 0
             total_co2 += co2
             
-            # Group by prediction type
+            # Group by prediction type and count occurrences
             pred_type = pred.get("prediction_type", "unknown")
-            categories[pred_type] = categories.get(pred_type, 0) + co2
+            categories_sum[pred_type] = categories_sum.get(pred_type, 0) + co2
+            categories_count[pred_type] = categories_count.get(pred_type, 0) + 1
         
-        # Calculate hourly rate (assuming predictions are for recent events)
+        # Calculate average per category (not sum)
+        categories = {
+            pred_type: categories_sum[pred_type] / categories_count[pred_type]
+            for pred_type in categories_sum
+        }
+        
+        # Calculate average CO2 per event (this is the "current rate")
         avg_co2_per_event = total_co2 / len(predictions) if predictions else 0
-        # Estimate hourly rate (assuming ~10 events per hour on average)
-        hourly_rate = avg_co2_per_event * 10
+        
+        # For "per hour" display, we'll just use the average per event
+        hourly_rate = avg_co2_per_event
         
         # Calculate trend (compare first half vs second half)
         trend = 0
