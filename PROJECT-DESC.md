@@ -195,7 +195,7 @@ Result: 🟡 WARNING hotspot detected
 - Handles seasonal variations
 
 #### **Scheduler Agent**
-- Runs every 5 minutes automatically
+- Runs every 60 minutes automatically
 - Fetches new events → Predicts → Detects hotspots → Generates alerts
 - No manual intervention needed
 

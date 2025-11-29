@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from datetime import datetime
 from .utils.config import settings
 from .utils.logger import logger
 from .api import routes_dashboard, routes_hotspots, routes_recommendations, routes_simulation, routes_alerts, routes_data_quality
@@ -102,6 +103,18 @@ async def trigger_immediate_analysis():
         hotspots = await hotspot_engine.scan_for_hotspots(limit=200)
         
         logger.info(f"✅ Immediate analysis complete. Found {len(hotspots)} hotspots")
+        
+        # Emit WebSocket event to notify frontend to refresh dashboard
+        try:
+            from .services.websocket_manager import ws_manager
+            await ws_manager.emit_emissions_update({
+                "status": "analysis_complete",
+                "hotspots_detected": len(hotspots),
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            logger.info("📡 Emitted emissions_update WebSocket event")
+        except Exception as e:
+            logger.error(f"Error emitting WebSocket event: {e}")
         
         return {
             "status": "success",

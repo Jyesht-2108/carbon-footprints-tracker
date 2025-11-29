@@ -26,8 +26,12 @@ async def get_current_emissions() -> Dict[str, Any]:
                 "last_updated": None
             }
         
-        # Calculate average CO2 per prediction type (not total sum)
-        # This gives us the average emission per event for each category
+        # Get events to map predictions to suppliers
+        events = await db_client.get_recent_events(limit=100)
+        event_supplier_map = {e.get("id"): e.get("supplier_id", "Unknown") for e in events}
+        
+        # Calculate average CO2 per supplier (not total sum)
+        # This gives us the average emission per event for each supplier
         total_co2 = 0
         categories_sum = {}
         categories_count = {}
@@ -36,15 +40,18 @@ async def get_current_emissions() -> Dict[str, Any]:
             co2 = pred.get("predicted_co2", 0) or 0
             total_co2 += co2
             
-            # Group by prediction type and count occurrences
-            pred_type = pred.get("prediction_type", "unknown")
-            categories_sum[pred_type] = categories_sum.get(pred_type, 0) + co2
-            categories_count[pred_type] = categories_count.get(pred_type, 0) + 1
+            # Get supplier from event mapping
+            event_id = pred.get("event_id")
+            supplier = event_supplier_map.get(event_id, "Unknown")
+            
+            # Group by supplier and count occurrences
+            categories_sum[supplier] = categories_sum.get(supplier, 0) + co2
+            categories_count[supplier] = categories_count.get(supplier, 0) + 1
         
-        # Calculate average per category (not sum)
+        # Calculate average per supplier (not sum)
         categories = {
-            pred_type: categories_sum[pred_type] / categories_count[pred_type]
-            for pred_type in categories_sum
+            supplier: categories_sum[supplier] / categories_count[supplier]
+            for supplier in categories_sum
         }
         
         # Calculate average CO2 per event (this is the "current rate")

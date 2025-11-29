@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { dashboardApi } from '@/services/api'
 import EmissionsCard from '@/components/cards/EmissionsCard'
 import HotspotsCard from '@/components/cards/HotspotsCard'
@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/useToast'
 import { useEffect } from 'react'
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient()
   const { subscribe } = useWebSocket()
   const { toasts, removeToast, warning, info, error: showError } = useToast()
 
@@ -37,10 +38,23 @@ export default function DashboardPage() {
       info('New Recommendation', data.title || 'A new AI recommendation is available', 8000)
     })
 
+    const unsubscribeEmissionsUpdate = subscribe('emissions_update', (data) => {
+      console.log('📊 Emissions data updated:', data)
+      // Refetch all dashboard data when analysis completes
+      queryClient.invalidateQueries({ queryKey: ['emissions'] })
+      queryClient.invalidateQueries({ queryKey: ['hotspots'] })
+      queryClient.invalidateQueries({ queryKey: ['recommendations'] })
+      queryClient.invalidateQueries({ queryKey: ['alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['forecast'] })
+      queryClient.invalidateQueries({ queryKey: ['dataQuality'] })
+      info('Dashboard Updated', 'New emissions data available', 5000)
+    })
+
     return () => {
       unsubscribeAlert()
       unsubscribeHotspot()
       unsubscribeRecommendation()
+      unsubscribeEmissionsUpdate()
     }
   }, [subscribe, warning, info, showError])
 
