@@ -122,73 +122,70 @@ class HotspotEngine:
     async def _get_prediction(self, event: Dict[str, Any]) -> Optional[float]:
         """Get ML prediction for event."""
         # Determine event type and prepare features
-        prediction_type = None
+        prediction_type = event.get("event_type", "").lower()
         predicted_co2 = None
         features = {}
         
-        if event.get("distance_km"):
+        # Use event_type field to determine which prediction to make
+        if prediction_type == "logistics":
             # Logistics event
-            prediction_type = "logistics"
             features = {
-                "distance_km": event.get("distance_km", 0),
-                "load_kg": event.get("load_kg", 0),  # Fixed: was load_weight_kg
+                "distance_km": float(event.get("distance_km", 0) or 0),
+                "load_kg": float(event.get("load_kg", 0) or 0),
                 "vehicle_type": event.get("vehicle_type", "truck"),
                 "fuel_type": event.get("fuel_type", "diesel"),
-                "avg_speed": event.get("speed", 50),  # Fixed: was avg_speed
-                "stop_events": event.get("stop_events", 0)
+                "avg_speed": float(event.get("speed", 50) or 50),
+                "stop_events": int(event.get("stop_events", 0) or 0)
             }
             predicted_co2 = await ml_client.predict_logistics(features)
             
-            # Save prediction to database
-            if predicted_co2 is not None:
-                await db_client.insert_prediction({
-                    "event_id": event.get("id"),
-                    "prediction_type": prediction_type,
-                    "predicted_co2": predicted_co2,
-                    "confidence_score": 0.85,  # Default confidence
-                    "model_version": "v1.0",
-                    "features": features
-                })
+        elif prediction_type == "factory":
+            # Factory event
+            features = {
+                "energy_kwh": float(event.get("energy_kwh", 0) or 0),
+                "shift_hours": float(event.get("shift_hours", 8) or 8),
+                "machine_runtime_hours": float(event.get("shift_hours", 8) or 8),
+                "furnace_usage": float(event.get("furnace_usage", 0) or 0),
+                "cooling_load": float(event.get("cooling_load", 0) or 0)
+            }
+            predicted_co2 = await ml_client.predict_factory(features)
             
-            return predicted_co2
+        elif prediction_type == "warehouse":
+            # Warehouse event
+            features = {
+                "temperature": float(event.get("temperature", 20) or 20),
+                "energy_kwh": float(event.get("energy_kwh", 0) or 0),
+                "refrigeration_load": float(event.get("refrigeration_load", 0) or 0),
+                "inventory_volume": float(event.get("inventory_volume", 0) or 0)
+            }
+            predicted_co2 = await ml_client.predict_warehouse(features)
+            
+        elif prediction_type == "delivery":
+            # Delivery event
+            features = {
+                "route_length": float(event.get("distance_km", 0) or 0),
+                "vehicle_type": event.get("vehicle_type", "truck"),
+                "traffic_score": int(event.get("traffic_score", 3) or 3),
+                "delivery_count": int(event.get("delivery_count", 1) or 1)
+            }
+            predicted_co2 = await ml_client.predict_delivery(features)
         
-        elif event.get("energy_kwh"):
-            # Factory or warehouse event
-            if event.get("furnace_usage"):
-                # Factory
-                prediction_type = "factory"
-                features = {
-                    "energy_kwh": event.get("energy_kwh", 0),
-                    "furnace_usage": event.get("furnace_usage", 0),
-                    "cooling_load": event.get("cooling_load", 0),
-                    "shift_hours": event.get("shift_hours", 8)
-                }
-                predicted_co2 = await ml_client.predict_factory(features)
-            else:
-                # Warehouse
-                prediction_type = "warehouse"
-                features = {
-                    "temperature": event.get("temperature", 20),
-                    "refrigeration_load": event.get("refrigeration_load", 0),
-                    "inventory_volume": event.get("inventory_volume", 0),
-                    "energy_kwh": event.get("energy_kwh", 0)
-                }
-                predicted_co2 = await ml_client.predict_warehouse(features)
-            
-            # Save prediction to database
-            if predicted_co2 is not None:
-                await db_client.insert_prediction({
-                    "event_id": event.get("id"),
-                    "prediction_type": prediction_type,
-                    "predicted_co2": predicted_co2,
-                    "confidence_score": 0.85,
-                    "model_version": "v1.0",
-                    "features": features
-                })
-            
-            return predicted_co2
+        else:
+            logger.warning(f"Unknown event type: {prediction_type}")
+            return None
         
-        return None
+        # Save prediction to database
+        if predicted_co2 is not None:
+            await db_client.insert_prediction({
+                "event_id": event.get("id"),
+                "prediction_type": prediction_type,
+                "predicted_co2": predicted_co2,
+                "confidence_score": 0.85,  # Default confidence
+                "model_version": "v1.0",
+                "features": features
+            })
+        
+        return predicted_co2
     
     async def _calculate_baseline(self, entity: str, entity_type: str) -> Optional[float]:
         """Calculate baseline from historical data."""

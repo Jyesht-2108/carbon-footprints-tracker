@@ -18,6 +18,12 @@ The hotspot engine was not including the `stop_events` field when calling the ML
 ### 3. Default Vehicle Type
 The default vehicle type was set to `"truck_diesel"` but should be just `"truck"` to match the ML Engine's expected format.
 
+### 4. Incorrect Event Type Detection Logic
+The hotspot engine was using field presence (`if distance_km exists`) to determine event type instead of checking the `event_type` field. This caused:
+- Only logistics events to be processed (because they have `distance_km`)
+- Factory and warehouse events to be ignored
+- All predictions to be "logistics" type with 85% confidence
+
 ## Fixes Applied
 
 ### 1. Fixed Service URLs in `.env`
@@ -35,29 +41,38 @@ DATA_CORE_URL=http://localhost:8001
 API_PORT=8000
 ```
 
-### 2. Added Missing Field and Fixed Vehicle Type
+### 2. Fixed Event Type Detection Logic
 **File:** `plugins/orchestration-engine/src/services/hotspot_engine.py`
 
-```python
-# Before:
-features = {
-    "distance_km": event.get("distance_km", 0),
-    "load_kg": event.get("load_kg", 0),
-    "vehicle_type": event.get("vehicle_type", "truck_diesel"),
-    "fuel_type": event.get("fuel_type", "diesel"),
-    "avg_speed": event.get("speed", 50)
-}
+Changed from field-based detection to `event_type` field-based routing:
 
-# After:
-features = {
-    "distance_km": event.get("distance_km", 0),
-    "load_kg": event.get("load_kg", 0),
-    "vehicle_type": event.get("vehicle_type", "truck"),
-    "fuel_type": event.get("fuel_type", "diesel"),
-    "avg_speed": event.get("speed", 50),
-    "stop_events": event.get("stop_events", 0)
-}
+```python
+# Before: Field-based detection
+if event.get("distance_km"):
+    # Logistics
+elif event.get("energy_kwh"):
+    if event.get("furnace_usage"):
+        # Factory
+    else:
+        # Warehouse
+
+# After: Event type-based routing
+prediction_type = event.get("event_type", "").lower()
+
+if prediction_type == "logistics":
+    # Process logistics
+elif prediction_type == "factory":
+    # Process factory
+elif prediction_type == "warehouse":
+    # Process warehouse
+elif prediction_type == "delivery":
+    # Process delivery
 ```
+
+This ensures:
+- All event types are properly recognized
+- Factory and warehouse events get correct predictions
+- Predictions table shows diverse event types (not just logistics)
 
 ## How to Apply the Fix
 
@@ -133,25 +148,36 @@ Instead of:
 
 ### 4. Verify Predictions
 
-Check if predictions are being generated:
+Check if predictions are being generated for all event types:
 
 ```bash
 # Check predictions table
 curl http://localhost:8000/api/v1/predictions
+
+# You should see predictions with different types:
+# - prediction_type: "logistics"
+# - prediction_type: "factory"
+# - prediction_type: "warehouse"
 ```
+
+Before the fix, you would only see "logistics" predictions. After the fix, you should see all three types.
 
 ## Expected Data Flow After Fix
 
 ```
 CSV Upload (port 8001)
     ↓
-events_normalized table
+events_normalized table (logistics, factory, warehouse events)
     ↓
 Trigger Analysis (port 8000)
     ↓
-ML Engine Predictions (port 8003)
+Event Type Detection (checks event_type field)
+    ├─ logistics → ML Engine /predict/logistics (port 8003)
+    ├─ factory → ML Engine /predict/factory (port 8003)
+    ├─ warehouse → ML Engine /predict/warehouse (port 8003)
+    └─ delivery → ML Engine /predict/delivery (port 8003)
     ↓
-predictions table
+predictions table (diverse event types with predictions)
     ↓
 Hotspot Detection (port 8000)
     ↓
