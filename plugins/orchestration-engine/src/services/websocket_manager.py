@@ -7,11 +7,11 @@ from ..utils.logger import logger
 sio = socketio.AsyncServer(
     async_mode='asgi',
     cors_allowed_origins='*',
-    logger=False,
-    engineio_logger=False,
+    logger=True,  # Enable logging to debug connection issues
+    engineio_logger=True,  # Enable engine.io logging
     ping_timeout=60,
     ping_interval=25,
-    always_connect=True,
+    always_connect=True,  # Accept all connections
     allow_upgrades=True,
     http_compression=True,
     compression_threshold=1024
@@ -21,15 +21,25 @@ sio = socketio.AsyncServer(
 # Setup event handlers immediately
 @sio.event
 async def connect(sid, environ, auth=None):
-    """Handle client connection."""
-    logger.info(f"WebSocket client connected: {sid}")
-    # Auto-subscribe to all channels
-    await sio.enter_room(sid, 'hotspots')
-    await sio.enter_room(sid, 'alerts')
-    await sio.enter_room(sid, 'recommendations')
-    await sio.enter_room(sid, 'emissions')
-    logger.info(f"Client {sid} subscribed to all channels")
-    return True  # Accept connection
+    """Handle client connection - accept all connections."""
+    try:
+        logger.info(f"✅ WebSocket client connecting: {sid}")
+        logger.info(f"Origin: {environ.get('HTTP_ORIGIN', 'unknown')}")
+        
+        # Auto-subscribe to all channels
+        await sio.enter_room(sid, 'hotspots')
+        await sio.enter_room(sid, 'alerts')
+        await sio.enter_room(sid, 'recommendations')
+        await sio.enter_room(sid, 'emissions')
+        
+        logger.info(f"✅ Client {sid} connected and subscribed to all channels")
+        
+        # Send welcome message
+        await sio.emit('connected', {'message': 'Connected to Carbon Nexus', 'sid': sid}, room=sid)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in connect handler: {e}")
+        raise
 
 
 @sio.event

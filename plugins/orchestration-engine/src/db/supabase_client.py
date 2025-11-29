@@ -95,6 +95,21 @@ class SupabaseClient:
             logger.error(f"Error upserting baseline: {e}")
             return None
     
+    async def get_predictions_by_entity(self, entity: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get predictions for a specific entity (supplier/route)."""
+        try:
+            # Get predictions joined with events to filter by entity
+            response = self.client.table("predictions")\
+                .select("*, events_normalized!inner(supplier_id)")\
+                .eq("events_normalized.supplier_id", entity)\
+                .order("created_at", desc=True)\
+                .limit(limit)\
+                .execute()
+            return response.data
+        except Exception as e:
+            logger.error(f"Error fetching predictions for entity {entity}: {e}")
+            return []
+    
     async def get_active_hotspots(self) -> List[Dict[str, Any]]:
         """Get currently active hotspots."""
         try:

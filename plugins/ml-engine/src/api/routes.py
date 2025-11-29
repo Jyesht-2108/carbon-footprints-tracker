@@ -42,7 +42,7 @@ class FactoryRequest(BaseModel):
 
 class WarehouseRequest(BaseModel):
     temperature: float = Field(..., description="Temperature in Celsius")
-    energy_kwh: float = Field(..., gt=0, description="Energy consumption in kWh")
+    energy_kwh: Optional[float] = Field(0, ge=0, description="Energy consumption in kWh (calculated if 0)")
     refrigeration_load: Optional[float] = Field(0, description="Refrigeration load")
     inventory_volume: Optional[float] = Field(0, description="Inventory volume")
 

@@ -59,17 +59,25 @@ class HotspotEngine:
             if baseline is None:
                 # Calculate baseline from recent history
                 baseline = await self._calculate_baseline(entity, entity_type)
-                if baseline:
+                if baseline is None:
+                    # First upload - use current prediction as baseline
+                    logger.info(f"First data for {entity}, establishing baseline at {predicted_co2:.2f} kg CO₂")
+                    await db_client.upsert_baseline({
+                        "entity": entity,
+                        "entity_type": entity_type,
+                        "baseline_value": predicted_co2,
+                        "updated_at": datetime.utcnow().isoformat()
+                    })
+                    # Don't create hotspot for baseline establishment
+                    return None
+                else:
+                    # Save calculated baseline
                     await db_client.upsert_baseline({
                         "entity": entity,
                         "entity_type": entity_type,
                         "baseline_value": baseline,
                         "updated_at": datetime.utcnow().isoformat()
                     })
-            
-            if baseline is None:
-                logger.warning(f"No baseline available for {entity}")
-                return None
             
             # Calculate severity
             severity = self.calculate_severity(predicted_co2, baseline)
@@ -188,23 +196,28 @@ class HotspotEngine:
         return predicted_co2
     
     async def _calculate_baseline(self, entity: str, entity_type: str) -> Optional[float]:
-        """Calculate baseline from historical data."""
+        """Calculate baseline from historical predictions."""
         try:
-            # Get recent events for this entity
-            events = await db_client.get_recent_events(limit=100)
+            # Get predictions for this entity from the predictions table
+            predictions = await db_client.get_predictions_by_entity(entity, limit=50)
             
-            # Filter by entity
-            entity_events = [
-                e for e in events
-                if (e.get("supplier_id") == entity or e.get("route_id") == entity)  # Fixed: was supplier_name
-            ]
+            if not predictions or len(predictions) < 5:
+                # Not enough data for baseline - use first batch as baseline
+                logger.info(f"Insufficient historical data for {entity}, using current predictions as baseline")
+                return None  # Will trigger baseline creation from current batch
             
-            if not entity_events:
+            # Calculate average CO2 from historical predictions
+            co2_values = [p.get("predicted_co2") for p in predictions if p.get("predicted_co2")]
+            
+            if not co2_values:
                 return None
             
-            # Calculate average CO2 (simplified - in production, use predictions)
-            # For now, use a default baseline
-            return 60.0  # Default baseline
+            # Use median to avoid outlier influence
+            import statistics
+            baseline = statistics.median(co2_values)
+            
+            logger.info(f"Calculated baseline for {entity}: {baseline:.2f} kg CO₂ (from {len(co2_values)} predictions)")
+            return baseline
             
         except Exception as e:
             logger.error(f"Error calculating baseline: {e}")
