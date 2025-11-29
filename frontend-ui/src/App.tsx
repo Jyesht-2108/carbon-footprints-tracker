@@ -3,6 +3,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import Layout from './components/layout/Layout'
 import PrivateRoute from './components/auth/PrivateRoute'
+import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
@@ -21,11 +22,12 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           
           {/* Protected Routes */}
-          <Route path="/" element={
+          <Route path="/dashboard" element={
             <PrivateRoute>
               <Layout>
                 <DashboardPage />
@@ -89,8 +91,8 @@ function App() {
             </PrivateRoute>
           } />
           
-          {/* Catch all - redirect to login */}
-          <Route path="*" element={<Navigate to="/login" />} />
+          {/* Catch all - redirect to landing */}
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </AuthProvider>
     </ThemeProvider>

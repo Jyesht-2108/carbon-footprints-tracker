@@ -23,7 +23,7 @@ export default function LoginPage() {
       setError('')
       setLoading(true)
       await login(email, password)
-      navigate('/')
+      navigate('/dashboard')
     } catch (err: any) {
       console.error('Login error:', err)
       
