@@ -40,7 +40,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative z-20">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}

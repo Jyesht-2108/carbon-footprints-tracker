@@ -5,8 +5,9 @@ import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem('remembered_email') || '')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('remember_me') === 'true')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -22,6 +23,16 @@ export default function LoginPage() {
     try {
       setError('')
       setLoading(true)
+      
+      // Save remember me preference
+      if (rememberMe) {
+        localStorage.setItem('remember_me', 'true')
+        localStorage.setItem('remembered_email', email)
+      } else {
+        localStorage.removeItem('remember_me')
+        localStorage.removeItem('remembered_email')
+      }
+      
       await login(email, password)
       navigate('/dashboard')
     } catch (err: any) {
@@ -132,6 +143,24 @@ export default function LoginPage() {
                   disabled={loading}
                 />
               </div>
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-0 cursor-pointer"
+                disabled={loading}
+              />
+              <label
+                htmlFor="remember-me"
+                className="ml-2 text-sm text-white/70 cursor-pointer select-none"
+              >
+                Remember me
+              </label>
             </div>
 
             {/* Login Button */}

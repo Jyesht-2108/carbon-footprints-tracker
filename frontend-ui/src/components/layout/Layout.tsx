@@ -108,9 +108,9 @@ export default function Layout({ children }: LayoutProps) {
       </div>
       
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden relative z-10">
+      <div className="flex-1 flex flex-col overflow-hidden relative z-20">
         <Topbar unreadAlerts={unreadAlerts} onClearAlerts={clearUnreadAlerts} />
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-8 relative z-20">
           {children}
         </main>
       </div>

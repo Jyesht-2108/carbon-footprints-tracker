@@ -11,19 +11,41 @@ interface Message {
 }
 
 export default function ChatbotPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hello! I\'m your Carbon Intelligence AI assistant. I can help you understand your emissions data, analyze trends, and provide recommendations. You can also upload documents (PDF, TXT, MD) to add to my knowledge base. What would you like to know?',
-      timestamp: new Date()
+  // Load messages from localStorage on mount
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const savedMessages = localStorage.getItem('chatbot_messages')
+    if (savedMessages) {
+      try {
+        const parsed = JSON.parse(savedMessages)
+        // Convert timestamp strings back to Date objects
+        return parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }))
+      } catch (e) {
+        console.error('Failed to parse saved messages:', e)
+      }
     }
-  ])
+    // Default welcome message
+    return [
+      {
+        id: '1',
+        role: 'assistant',
+        content: 'Hello! I\'m your Carbon Intelligence AI assistant. I can help you understand your emissions data, analyze trends, and provide recommendations. You can also upload documents (PDF, TXT, MD) to add to my knowledge base. What would you like to know?',
+        timestamp: new Date()
+      }
+    ]
+  })
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('chatbot_messages', JSON.stringify(messages))
+  }, [messages])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
