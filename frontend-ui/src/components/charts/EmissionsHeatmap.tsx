@@ -33,14 +33,13 @@ export default function EmissionsHeatmap({ data }: EmissionsHeatmapProps) {
   const maxValue = Math.max(...items.map(i => i.value))
   const avgValue = items.reduce((sum, i) => sum + i.value, 0) / items.length
 
-  // Get color based on intensity
+  // Get color based on absolute value (not relative)
   const getColor = (value: number) => {
-    const intensity = value / maxValue
-    // Align with new thresholds
-    if (intensity > 0.9) return 'from-red-500 to-pink-600'
-    if (intensity > 0.7) return 'from-amber-500 to-orange-600'
-    if (intensity > 0.4) return 'from-yellow-500 to-amber-500'
-    return 'from-emerald-500 to-teal-600'
+    // Use absolute thresholds based on typical emission levels
+    if (value > 100) return 'from-red-500 to-pink-600'      // Critical: >100 kg
+    if (value > 50) return 'from-amber-500 to-orange-600'   // High: 50-100 kg
+    if (value > 20) return 'from-yellow-500 to-amber-500'   // Medium: 20-50 kg
+    return 'from-emerald-500 to-teal-600'                   // Low: <20 kg
   }
 
   const getIcon = (value: number) => {
@@ -50,12 +49,11 @@ export default function EmissionsHeatmap({ data }: EmissionsHeatmapProps) {
   }
 
   const getIntensityLabel = (value: number) => {
-    const intensity = value / maxValue
-    // More reasonable thresholds - only top 10% is critical
-    if (intensity > 0.9) return 'Critical'
-    if (intensity > 0.7) return 'High'
-    if (intensity > 0.4) return 'Medium'
-    return 'Low'
+    // Use absolute thresholds instead of relative intensity
+    if (value > 100) return 'Critical'  // >100 kg CO₂
+    if (value > 50) return 'High'       // 50-100 kg CO₂
+    if (value > 20) return 'Medium'     // 20-50 kg CO₂
+    return 'Low'                        // <20 kg CO₂
   }
 
   return (
