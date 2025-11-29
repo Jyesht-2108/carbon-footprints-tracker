@@ -86,6 +86,14 @@ Provide a helpful, concise answer:`;
         
         const response = await this.model.invoke(chatPrompt);
         
+        // Log the response structure for debugging
+        logger.debug(`Chat attempt ${attempt}: Response type: ${typeof response}`, {
+          hasContent: !!(response as any)?.content,
+          contentType: typeof (response as any)?.content,
+          isArray: Array.isArray((response as any)?.content),
+          keys: response ? Object.keys(response).join(', ') : 'none'
+        });
+        
         // Check if response has content
         if (!response) {
           logger.warn(`Chat attempt ${attempt}: No response from AI model`);
@@ -98,23 +106,59 @@ Provide a helpful, concise answer:`;
         
         // Handle different response formats
         let answer: string;
-        if (typeof response === 'string') {
-          answer = response;
-        } else if (response.content) {
-          answer = typeof response.content === 'string' 
-            ? response.content 
-            : Array.isArray(response.content) && response.content.length > 0
-              ? (response.content[0] as any).text || response.content[0].toString()
-              : response.content.toString();
-        } else if ((response as any).text) {
-          answer = (response as any).text;
-        } else {
-          logger.warn(`Chat attempt ${attempt}: Unexpected response format`, { response: JSON.stringify(response).substring(0, 200) });
+        try {
+          if (typeof response === 'string') {
+            answer = response;
+          } else if ((response as any)?.content !== undefined) {
+            const content = (response as any).content;
+            if (typeof content === 'string') {
+              answer = content;
+            } else if (Array.isArray(content)) {
+              if (content.length > 0) {
+                const firstItem = content[0];
+                if (typeof firstItem === 'string') {
+                  answer = firstItem;
+                } else if (firstItem && typeof firstItem === 'object') {
+                  answer = (firstItem as any).text || JSON.stringify(firstItem);
+                } else {
+                  answer = String(firstItem);
+                }
+              } else {
+                // Empty array
+                logger.warn(`Chat attempt ${attempt}: Empty content array`);
+                if (attempt < 3) {
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  continue;
+                }
+                throw new Error('Empty content array from AI model');
+              }
+            } else if (typeof content === 'object' && content !== null) {
+              // Content is an object, try to extract text
+              answer = (content as any).text || JSON.stringify(content);
+            } else {
+              answer = String(content);
+            }
+          } else if ((response as any)?.text !== undefined) {
+            answer = (response as any).text;
+          } else if ((response as any)?.message !== undefined) {
+            answer = (response as any).message;
+          } else {
+            // Last resort: stringify the whole response
+            logger.warn(`Chat attempt ${attempt}: Unexpected response format, stringifying`, { 
+              responsePreview: JSON.stringify(response).substring(0, 200) 
+            });
+            answer = JSON.stringify(response);
+          }
+        } catch (parseError: any) {
+          logger.error(`Chat attempt ${attempt}: Error parsing response`, {
+            error: parseError.message,
+            responseType: typeof response
+          });
           if (attempt < 3) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             continue;
           }
-          throw new Error('Unexpected response format from AI model');
+          throw new Error(`Failed to parse AI response: ${parseError.message}`);
         }
         
         if (!answer || answer.trim().length === 0) {
